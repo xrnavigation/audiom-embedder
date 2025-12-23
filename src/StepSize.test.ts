@@ -1,21 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { StepSize, StepSizeUnit } from './StepSize';
 
-// Test constants
-const TEST_VALUES = {
-  meters: 100,
-  feet: 100,
-  miles: 1,
-  kilometers: 2
-} as const;
-
-const CONVERSION_FACTORS = {
-  metersPerKilometer: 1000,
-  metersPerMile: 1609.34,
-  metersPerFoot: 30.48,
-  feetPerMeter: 3.28084
-} as const;
-
 describe('StepSize', () => {
   describe('Factory Methods', () => {
     it('should create StepSize from meters', () => {
