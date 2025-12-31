@@ -9,11 +9,6 @@ export type { IAudiomSource } from './AudiomSource';
 export { StepSize } from './StepSize';
 
 export { AudiomMessageHandler } from './AudiomMessages';
-export type { 
+export type {
   AudiomMessage,
-  AudiomEvent,
-  MapReadyMessage,
-  LocationChangeMessage,
-  ErrorMessage,
-  MessageHandler 
 } from './AudiomMessages';

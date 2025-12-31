@@ -108,6 +108,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   stepSize?: StepSize;
   additionalParams?: Record<string, string | number | boolean>;
 
+  /**
+   * Default base URL for Audiom API
+   */
+  static defaultBaseURL = 'https://audiom-staging.herokuapp.com';
+
   constructor(config: IAudiomEmbedConfig) {
     // Required
     this.embedId = config.embedId;
@@ -242,7 +247,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   /**
    * Generate the complete embed URL
    */
-  toUrl(baseUrl: string = 'https://audiom-staging.herokuapp.com'): string {
+  toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
     const params = this.toQueryParams();
     const queryString = Object.entries(params)
       .map(([key, value]) => `${key}=${value}`)
