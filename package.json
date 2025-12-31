@@ -20,8 +20,8 @@
     "embed",
     "typescript"
   ],
-  "author": "",
-  "license": "MIT",
+  "author": "XR Navigation Inc.",
+  "license": "UNLICENSED",
   "files": [
     "dist",
     "README.md"
