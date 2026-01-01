@@ -1,0 +1,47 @@
+name: Build
+
+on:
+  # push:
+  #   branches:
+  #   - master
+  #   - release/**
+  # pull_request:
+  #   branches:
+  #   - master
+  #   - release/**
+  workflow_dispatch:
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+    - name: "Checkout"
+      uses: https://github.com/actions/checkout@v3
+
+    - name: "Install dependencies and run tests"
+      uses: act/common/npm/npm-test@master
+      with:
+        nodeVersion: 22
+
+    # - name: "Pack and compare the next version of the NPM package"
+    #   id: get_version
+    #   uses: act/common/npm/npm-pack-and-compare@master
+    #   with:
+    #     packageJson: package.json
+    #     registry: https://npm.pkg.github.com
+    #     apiKey: ${{ secrets.ACTIONS_TOKEN }}
+
+    # - name: "Upload Artifacts"
+    #   uses: https://github.com/actions/upload-artifact@v3
+    #   with:
+    #     name: ${{ steps.get_version.outputs.tgzName }}
+    #     path: ${{ steps.get_version.outputs.tgz }}
+
+    # - name: "Publish the NPM package"
+    #   if: ${{ steps.get_version.outputs.hasChanged == 'true' }}
+    #   uses: act/common/npm/npm-push@master
+    #   with:
+    #     tgz: ${{ steps.get_version.outputs.tgz }}
+    #     registry: https://npm.pkg.github.com
+    #     apiKey: ${{ secrets.ACTIONS_TOKEN }}
+    #     access: public
