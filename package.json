@@ -9,7 +9,7 @@
     "watch": "tsc --watch",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "test:coverage": "vitest run --coverage --reporter=default --reporter=json --outputFile=test-results.json",
     "prepublishOnly": "npm run build",
     "clean": "rmdir /s /q dist 2>nul || exit 0"
   },
