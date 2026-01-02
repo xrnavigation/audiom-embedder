@@ -25,6 +25,8 @@ jobs:
       uses: act/common/npm/npm-test@master
       with:
         nodeVersion: 22
+        testCommand: npm run test:coverage
+        uploadCoverage: true
 
     # - name: "Pack and compare the next version of the NPM package"
     #   id: get_version
