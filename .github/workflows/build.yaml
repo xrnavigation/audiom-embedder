@@ -15,6 +15,8 @@ on:
 
 env:
   RUNNER_TOOL_CACHE: /toolcache
+  NODE_VERSION: ${{ vars.NODE_VERSION && vars.NODE_VERSION || '20' }}
+  REGISTRY: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/npm/
 
 jobs:
   package:
@@ -26,35 +28,48 @@ jobs:
     - name: "Install dependencies and run tests"
       uses: act/common/npm/npm-test@master
       with:
-        nodeVersion: 22
+        nodeVersion: ${{ env.NODE_VERSION }}
         testCommand: npm run test:coverage
         uploadCoverage: true
+        authUrls: ${{ env.REGISTRY }}
+        apiKeys: ${{ secrets.ACTIONS_TOKEN }}
 
-    - name: "Pack and compare the next version of the NPM package"
-      id: get_version
-      uses: act/common/npm/npm-pack-and-compare@master
+    - name: "Get version from package.json"
+      id: version
+      uses: act/common/yq/yq-expression@master
       with:
-        name: audiom-embedder
-        registry: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/nuget/index.json
-        apiKey: ${{ secrets.ACTIONS_TOKEN }}
+        expression: .version
+        input: package.json
 
-    - run: |
-        echo "Package name: ${{ steps.get_version.outputs.tgzName }}"
-        echo "Package path: ${{ steps.get_version.outputs.tgz }}"
-        echo "Has changed: ${{ steps.get_version.outputs.hasChanged }}"
+    - name: "Debug - Version info"
+      run: |
+        echo "Parsed version: '${{ steps.version.outputs.result }}'"
+        echo "Event name: '${{ github.event_name }}'"
+        echo "Is push: ${{ github.event_name == 'push' }}"
       shell: bash
 
+    - name: "Pack package"
+      if: ${{ github.event_name == 'push' }}
+      id: pack
+      uses: act/common/npm/npm-pack@master
+      with:
+        version: ${{ steps.version.outputs.result }}
+        nodeVersion: ${{ env.NODE_VERSION }}
+        buildScript: build
+        outputDirectory: out
+
     - name: "Upload Artifacts"
+      if: ${{ github.event_name == 'push' }}
       uses: https://github.com/actions/upload-artifact@v3
       with:
-        name: ${{ steps.get_version.outputs.tgzName }}
-        path: ${{ steps.get_version.outputs.tgz }}
+        name: ${{ steps.pack.outputs.tgzName }}
+        path: ${{ steps.pack.outputs.tgz }}
 
     - name: "Publish the NPM package"
-      if: ${{ steps.get_version.outputs.hasChanged == 'true' }}
+      if: ${{ github.event_name == 'push' }}
       uses: act/common/npm/npm-push@master
       with:
-        tgz: ${{ steps.get_version.outputs.tgz }}
-        registry: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/npm/
+        tgz: ${{ steps.pack.outputs.tgz }}
+        registry: ${{ env.REGISTRY }}
         apiKey: ${{ secrets.ACTIONS_TOKEN }}
         access: public
