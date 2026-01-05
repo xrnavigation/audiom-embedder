@@ -41,13 +41,6 @@ jobs:
         expression: .version
         input: package.json
 
-    - name: "Debug - Version info"
-      run: |
-        echo "Parsed version: '${{ steps.version.outputs.result }}'"
-        echo "Event name: '${{ github.event_name }}'"
-        echo "Is push: ${{ github.event_name == 'push' }}"
-      shell: bash
-
     - name: "Pack package"
       if: ${{ github.event_name == 'push' }}
       id: pack
