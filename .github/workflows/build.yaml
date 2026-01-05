@@ -14,29 +14,28 @@ on:
   workflow_dispatch:
 
 env:
-  RUNNER_TOOL_CACHE: /toolcache
   NODE_VERSION: ${{ vars.NODE_VERSION && vars.NODE_VERSION || '20' }}
-  REGISTRY: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/npm/
+  REGISTRY: https://npm.pkg.github.com
 
 jobs:
   package:
     runs-on: ubuntu-latest
     steps:
     - name: "Checkout"
-      uses: https://github.com/actions/checkout@v3
+      uses: actions/checkout@v3
 
     - name: "Install dependencies and run tests"
-      uses: act/common/npm/npm-test@master
+      uses: StudioWhyNot/act/common/npm/npm-test@master
       with:
         nodeVersion: ${{ env.NODE_VERSION }}
         testCommand: npm run test:coverage
         uploadCoverage: true
         authUrls: ${{ env.REGISTRY }}
-        apiKeys: ${{ secrets.ACTIONS_TOKEN }}
+        apiKeys: ${{ github.token }}
 
     - name: "Get version from package.json"
       id: version
-      uses: act/common/yq/yq-expression@master
+      uses: StudioWhyNot/act/common/yq/yq-expression@master
       with:
         expression: .version
         input: package.json
@@ -44,7 +43,7 @@ jobs:
     - name: "Pack package"
       if: ${{ github.event_name == 'push' }}
       id: pack
-      uses: act/common/npm/npm-pack@master
+      uses: StudioWhyNot/act/common/npm/npm-pack@master
       with:
         version: ${{ steps.version.outputs.result }}
         nodeVersion: ${{ env.NODE_VERSION }}
@@ -53,16 +52,16 @@ jobs:
 
     - name: "Upload Artifacts"
       if: ${{ github.event_name == 'push' }}
-      uses: https://github.com/actions/upload-artifact@v3
+      uses: actions/upload-artifact@v3
       with:
         name: ${{ steps.pack.outputs.tgzName }}
         path: ${{ steps.pack.outputs.tgz }}
 
     - name: "Publish the NPM package"
       if: ${{ github.event_name == 'push' }}
-      uses: act/common/npm/npm-push@master
+      uses: StudioWhyNot/act/common/npm/npm-push@master
       with:
         tgz: ${{ steps.pack.outputs.tgz }}
         registry: ${{ env.REGISTRY }}
-        apiKey: ${{ secrets.ACTIONS_TOKEN }}
+        apiKey: ${{ github.token }}
         access: public
