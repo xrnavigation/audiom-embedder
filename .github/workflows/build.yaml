@@ -15,7 +15,8 @@ on:
 
 env:
   RUNNER_TOOL_CACHE: /toolcache
-
+  NODE_VERSION: ${{ vars.NODE_VERSION && vars.NODE_VERSION || '20' }}
+  REGISTRY: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/npm/
 jobs:
   package:
     runs-on: ubuntu-latest
@@ -26,23 +27,19 @@ jobs:
     - name: "Install dependencies and run tests"
       uses: act/common/npm/npm-test@master
       with:
-        nodeVersion: 22
+        nodeVersion: ${{ env.NODE_VERSION }}
         testCommand: npm run test:coverage
         uploadCoverage: true
+        registries: ${{ env.REGISTRY }}
+        apiKeys: ${{ secrets.ACTIONS_TOKEN }}
 
     - name: "Pack and compare the next version of the NPM package"
       id: get_version
       uses: act/common/npm/npm-pack-and-compare@master
       with:
         name: audiom-embedder
-        registry: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/nuget/index.json
+        registry: ${{ env.REGISTRY }}
         apiKey: ${{ secrets.ACTIONS_TOKEN }}
-
-    - run: |
-        echo "Package name: ${{ steps.get_version.outputs.tgzName }}"
-        echo "Package path: ${{ steps.get_version.outputs.tgz }}"
-        echo "Has changed: ${{ steps.get_version.outputs.hasChanged }}"
-      shell: bash
 
     - name: "Upload Artifacts"
       uses: https://github.com/actions/upload-artifact@v3
@@ -55,6 +52,6 @@ jobs:
       uses: act/common/npm/npm-push@master
       with:
         tgz: ${{ steps.get_version.outputs.tgz }}
-        registry: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/npm/
+        registry: ${{ env.REGISTRY }}
         apiKey: ${{ secrets.ACTIONS_TOKEN }}
         access: public
