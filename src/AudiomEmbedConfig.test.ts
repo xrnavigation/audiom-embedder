@@ -33,7 +33,7 @@ describe('AudiomEmbedConfig', () => {
       const config = AudiomEmbedConfig.dynamic({
         apiKey: 'test-key',
         sources: ['osm'],
-        stepSize: StepSize.Meters(50)
+        stepSize: StepSize.meters(50)
       });
 
       const url = config.toUrl();
