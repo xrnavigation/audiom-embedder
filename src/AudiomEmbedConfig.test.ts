@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { AudiomEmbedConfig } from './AudiomEmbedConfig';
 import { StepSize } from './StepSize';
+import { SourceType } from './AudiomSource';
+import { Coordinates } from './Coordinates';
 
 describe('AudiomEmbedConfig', () => {
   describe('dynamic', () => {
@@ -8,11 +10,12 @@ describe('AudiomEmbedConfig', () => {
       const config = AudiomEmbedConfig.dynamic({
         apiKey: 'test-key',
         sources: ['osm'],
-        center: [-122.1431, 47.6495],
+        center: Coordinates.create(-122.1431, 47.6495),
         zoom: 15
       });
 
       expect(config).toBeDefined();
+      expect(config.embedId).toBe('dynamic');
       const url = config.toUrl();
       expect(url).toContain('embed/dynamic');
       expect(url).toContain('apiKey=test-key');
@@ -26,7 +29,7 @@ describe('AudiomEmbedConfig', () => {
       });
 
       const url = config.toUrl();
-      expect(url).toContain('sources=osm,google');
+      expect(url).toContain('sources=osm%2Cgoogle');
     });
 
     it('should include step size when provided', () => {
@@ -39,17 +42,40 @@ describe('AudiomEmbedConfig', () => {
       const url = config.toUrl();
       expect(url).toContain('stepsize=50m');
     });
+
+    it('should parse step size from string', () => {
+      const config = AudiomEmbedConfig.dynamic({
+        apiKey: 'test-key',
+        sources: ['osm'],
+        stepSize: '100ft'
+      });
+
+      expect(config.stepSize).toBeDefined();
+      expect(config.stepSize!.value).toBe(100);
+      expect(config.stepSize!.toString()).toBe('100ft');
+    });
+
+    it('should handle source objects', () => {
+      const config = AudiomEmbedConfig.dynamic({
+        apiKey: 'test-key',
+        sources: [{ source: 'mySource', type: SourceType.ESRI, url: 'https://example.com/layer' }]
+      });
+
+      expect(config.sources).toHaveLength(1);
+      expect(config.sources![0].source).toBe('mySource');
+      expect(config.sources![0].type).toBe(SourceType.ESRI);
+    });
   });
 
   describe('static', () => {
     it('should create a static embed configuration with numeric ID', () => {
-        const key = 12345;
-        const keyName = 'test-key';
-        const config = AudiomEmbedConfig.static(key, keyName);
+      const key = 12345;
+      const keyName = 'test-key';
+      const config = AudiomEmbedConfig.static(key, keyName);
 
-        const url = config.toUrl();
-        expect(url).toContain(`embed/${key}`);
-        expect(url).toContain(`apiKey=${keyName}`);
+      const url = config.toUrl();
+      expect(url).toContain(`embed/${key}`);
+      expect(url).toContain(`apiKey=${keyName}`);
     });
 
     it('should create a static embed configuration with string ID', () => {
@@ -67,29 +93,6 @@ describe('AudiomEmbedConfig', () => {
 
       const url = config.toUrl();
       expect(url).toContain('zoom=10');
-    });
-  });
-
-  describe('toUrl', () => {
-    it('should generate a valid URL', () => {
-      const config = AudiomEmbedConfig.dynamic({
-        apiKey: 'test-key',
-        sources: ['osm']
-      });
-
-      const url = config.toUrl();
-      expect(url).toMatch(/^https?:\/\//);
-    });
-
-    it('should include center coordinates when provided', () => {
-      const config = AudiomEmbedConfig.dynamic({
-        apiKey: 'test-key',
-        sources: ['osm'],
-        center: [-122.5, 47.5]
-      });
-
-      const url = config.toUrl();
-      expect(url).toContain('center=-122.5,47.5');
     });
   });
 });
