@@ -31,7 +31,9 @@ jobs:
         testCommand: npm run test:coverage
         uploadCoverage: true
         registries: ${{ env.REGISTRY }}
-        apiKeys: ${{ secrets.ACTIONS_TOKEN }}
+        apiKeys: |
+          https://registry.npmjs.org
+          ${{ secrets.ACTIONS_TOKEN }}
 
     - name: "Pack and compare the next version of the NPM package"
       id: get_version
