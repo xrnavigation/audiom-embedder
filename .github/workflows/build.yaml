@@ -6,11 +6,13 @@ on:
     - main
     - master
     - release/**
+    - gitea-main
   pull_request:
     branches:
     - main
     - master
     - release/**
+    - gitea-main
   workflow_dispatch:
 
 env:
