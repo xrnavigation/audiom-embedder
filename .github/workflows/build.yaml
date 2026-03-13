@@ -30,9 +30,10 @@ jobs:
         nodeVersion: ${{ env.NODE_VERSION }}
         testCommand: npm run test:coverage
         uploadCoverage: true
-        registries: ${{ env.REGISTRY }}
+        useDefaultRegistry: true
+        registries: |
+          ${{ env.REGISTRY }}
         apiKeys: |
-          https://registry.npmjs.org
           ${{ secrets.ACTIONS_TOKEN }}
 
     - name: "Pack and compare the next version of the NPM package"
