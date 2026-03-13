@@ -1,10 +1,37 @@
 import { StepSize } from './StepSize';
 import { AudiomSource, IAudiomSource } from './AudiomSource';
+import { GeoQuad } from './GeoQuad';
+import { Coordinates } from './Coordinates';
 
 /**
- * Geographic coordinates [longitude, latitude]
+ * Visual style options for map rendering
  */
-export type Coordinates = [number, number];
+export enum VisualStyle {
+  Geology = 'geology',
+  Indoor = 'indoor',
+  Outdoor = 'outdoor',
+  Travel = 'travel'
+}
+
+/**
+ * Filter mode for map feature filtering
+ */
+export enum FilterMode {
+  /** Filters apply to all features everywhere */
+  Global = 'global',
+  /** Filters apply to menus and sonar scans only */
+  Scan = 'scan'
+}
+
+/**
+ * Visual base layer configuration
+ */
+export interface IVisualBaseLayer {
+  /** URL for the visual base layer image overlay */
+  url: string;
+  /** Position quad for the visual base layer */
+  position?: GeoQuad;
+}
 
 /**
  * Configuration interface for Audiom embedded map
@@ -83,6 +110,34 @@ export interface IAudiomEmbedConfig {
   stepSize?: StepSize | string;
 
   /**
+   * Comma-separated list of object types to filter map features
+   */
+  filters?: string[];
+
+  /**
+   * Controls how filters are applied
+   * @default FilterMode.Scan
+   */
+  filterMode?: FilterMode;
+
+  /**
+   * Visual rendering style
+   */
+  visualStyle?: VisualStyle;
+
+  /**
+   * Visual base layer image overlays with optional positioning
+   */
+  visualBaseLayers?: IVisualBaseLayer[];
+
+  /**
+   * Origins allowed to send messages via the PostMessage API.
+   * Set to '*' to allow any origin (development only).
+   * The PostMessage API is disabled by default.
+   */
+  allowedOrigins?: string[] | string;
+
+  /**
    * Additional custom parameters
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -106,6 +161,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   heading?: 1 | 2 | 3 | 4 | 5 | 6;
   showHeading?: boolean;
   stepSize?: StepSize;
+  filters?: string[];
+  filterMode?: FilterMode;
+  visualStyle?: VisualStyle;
+  visualBaseLayers?: IVisualBaseLayer[];
+  allowedOrigins?: string[] | string;
   additionalParams?: Record<string, string | number | boolean>;
 
   /**
@@ -148,6 +208,11 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
         : config.stepSize;
     }
 
+    this.filters = config.filters;
+    this.filterMode = config.filterMode;
+    this.visualStyle = config.visualStyle;
+    this.visualBaseLayers = config.visualBaseLayers;
+    this.allowedOrigins = config.allowedOrigins;
     this.additionalParams = config.additionalParams;
   }
 
@@ -184,7 +249,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     // Sources
     if (this.sources && this.sources.length > 0) {
       const sourceNames = this.sources.map(s => s.source).join(',');
-      // Use 'sources' if multiple, 'source' if single
+
       const sourceKey = "sources"
       params[sourceKey] = sourceNames;
 
@@ -197,7 +262,7 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
 
     // Center coordinates (takes precedence)
     if (this.center) {
-      params.center = `${this.center[0]},${this.center[1]}`;
+      params.center = this.center.toString();
     } else {
       // Fallback to latitude/longitude
       if (this.latitude !== undefined) {
@@ -209,6 +274,9 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
 
     // Optional parameters
+    if (this.title) {
+      params.title = this.title;
+    }
     if (this.zoom !== undefined) {
       params.zoom = String(this.zoom);
     }
@@ -217,9 +285,6 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.demo !== undefined) {
       params.demo = String(this.demo);
-    }
-    if (this.title) {
-      params.title = this.title;
     }
     if (this.showVisualMap !== undefined) {
       params.showVisualMap = String(this.showVisualMap);
@@ -232,6 +297,28 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
     }
     if (this.stepSize) {
       params.stepsize = this.stepSize.toString();
+    }
+    if (this.filters && this.filters.length > 0) {
+      params.filters = this.filters.join(',');
+    }
+    if (this.filterMode) {
+      params.filterMode = this.filterMode;
+    }
+    if (this.visualStyle) {
+      params.visualStyle = this.visualStyle;
+    }
+    if (this.visualBaseLayers && this.visualBaseLayers.length > 0) {
+      this.visualBaseLayers.forEach((layer, index) => {
+        params[`visualbaselayer${index}`] = layer.url;
+        if (layer.position) {
+          params[`visualbaselayerposition${index}`] = layer.position.toString();
+        }
+      });
+    }
+    if (this.allowedOrigins) {
+      params.allowedOrigins = Array.isArray(this.allowedOrigins)
+        ? this.allowedOrigins.join(',')
+        : this.allowedOrigins;
     }
 
     // Additional custom parameters
@@ -250,13 +337,13 @@ export class AudiomEmbedConfig implements IAudiomEmbedConfig {
   toUrl(baseUrl: string = AudiomEmbedConfig.defaultBaseURL): string {
     const params = this.toQueryParams();
     const queryString = Object.entries(params)
-      .map(([key, value]) => `${key}=${value}`)
+      .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
       .join('&');
 
     return `${baseUrl}/embed/${this.embedId}?${queryString}`;
   }
 
-  /**
+  /** 
    * Generate an embed URL with custom base URL
    */
   toUrlWithBase(baseUrl: string): string {
