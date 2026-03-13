@@ -6,57 +6,62 @@ on:
     - main
     - master
     - release/**
-    - gitea-main
   pull_request:
     branches:
     - main
     - master
     - release/**
-    - gitea-main
   workflow_dispatch:
 
 env:
-  RUNNER_TOOL_CACHE: /toolcache
   NODE_VERSION: ${{ vars.NODE_VERSION && vars.NODE_VERSION || '20' }}
-  REGISTRY: ${{ github.server_url }}/api/packages/${{ github.repository_owner }}/npm/
+  REGISTRY: https://npm.pkg.github.com
+
 jobs:
   package:
     runs-on: ubuntu-latest
     steps:
     - name: "Checkout"
-      uses: https://github.com/actions/checkout@v3
+      uses: actions/checkout@v3
 
     - name: "Install dependencies and run tests"
-      uses: act/common/npm/npm-test@master
+      uses: StudioWhyNot/act/common/npm/npm-test@master
       with:
         nodeVersion: ${{ env.NODE_VERSION }}
         testCommand: npm run test:coverage
         uploadCoverage: true
-        useDefaultRegistry: true
-        registries: |
-          ${{ env.REGISTRY }}
-        apiKeys: |
-          ${{ secrets.ACTIONS_TOKEN }}
+        authUrls: ${{ env.REGISTRY }}
+        apiKeys: ${{ github.token }}
 
-    - name: "Pack and compare the next version of the NPM package"
-      id: get_version
-      uses: act/common/npm/npm-pack-and-compare@master
+    - name: "Get version from package.json"
+      id: version
+      uses: StudioWhyNot/act/common/yq/yq-expression@master
       with:
-        name: audiom-embedder
-        registry: ${{ env.REGISTRY }}
-        apiKey: ${{ secrets.ACTIONS_TOKEN }}
+        expression: .version
+        input: package.json
+
+    - name: "Pack package"
+      if: ${{ github.event_name == 'push' }}
+      id: pack
+      uses: StudioWhyNot/act/common/npm/npm-pack@master
+      with:
+        version: ${{ steps.version.outputs.result }}
+        nodeVersion: ${{ env.NODE_VERSION }}
+        buildScript: build
+        outputDirectory: out
 
     - name: "Upload Artifacts"
-      uses: https://github.com/actions/upload-artifact@v3
+      if: ${{ github.event_name == 'push' }}
+      uses: actions/upload-artifact@v6
       with:
-        name: ${{ steps.get_version.outputs.tgzName }}
-        path: ${{ steps.get_version.outputs.tgz }}
+        name: ${{ steps.pack.outputs.tgzName }}
+        path: ${{ steps.pack.outputs.tgz }}
 
     - name: "Publish the NPM package"
-      if: ${{ steps.get_version.outputs.hasChanged == 'true' }}
-      uses: act/common/npm/npm-push@master
+      if: ${{ github.event_name == 'push' }}
+      uses: StudioWhyNot/act/common/npm/npm-push@master
       with:
-        tgz: ${{ steps.get_version.outputs.tgz }}
+        tgz: ${{ steps.pack.outputs.tgz }}
         registry: ${{ env.REGISTRY }}
-        apiKey: ${{ secrets.ACTIONS_TOKEN }}
+        apiKey: ${{ github.token }}
         access: public
