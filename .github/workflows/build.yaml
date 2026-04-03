@@ -58,11 +58,11 @@ jobs:
         name: ${{ steps.pack.outputs.tgzName }}
         path: ${{ steps.pack.outputs.tgz }}
 
-    - name: "Publish the NPM package"
-      if: ${{ github.event_name == 'push' }}
-      uses: StudioWhyNot/act/common/npm/npm-push@master
-      with:
-        tgz: ${{ steps.pack.outputs.tgz }}
-        registry: ${{ env.REGISTRY }}
-        apiKey: ${{ env.NODE_AUTH_TOKEN }}
-        access: public
+    # - name: "Publish the NPM package"
+    #   if: ${{ github.event_name == 'push' }}
+    #   uses: StudioWhyNot/act/common/npm/npm-push@master
+    #   with:
+    #     tgz: ${{ steps.pack.outputs.tgz }}
+    #     registry: ${{ env.REGISTRY }}
+    #     apiKey: ${{ env.NODE_AUTH_TOKEN }}
+    #     access: public
