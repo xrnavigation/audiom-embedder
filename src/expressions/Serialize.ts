@@ -63,7 +63,7 @@ function logicalToString(expr: LogicalExpr): string {
   const parts = expr.children.map(child => {
     const serialized = toString(child);
     // Wrap child logical expressions of lower precedence in parens
-    if (child.type === 'logical' && child.op !== expr.op) {
+    if (child.type === ExpressionType.Logical && child.op !== expr.op) {
       return `(${serialized})`;
     }
     return serialized;
@@ -72,19 +72,19 @@ function logicalToString(expr: LogicalExpr): string {
 }
 
 function likeToString(expr: LikeExpr): string {
-  const op = expr.not ? SqlKeyword.NotLike : SqlKeyword.Like;
-  return `${expr.field} ${op} '${expr.pattern.replace(SINGLE_QUOTE_PATTERN, "''")}'`;
+  const keyword = expr.not ? SqlKeyword.NotLike : SqlKeyword.Like;
+  return `${expr.field} ${keyword} '${expr.pattern.replace(SINGLE_QUOTE_PATTERN, "''")}'`;
 }
 
 function inToString(expr: InExpr): string {
-  const op = expr.not ? SqlKeyword.NotIn : SqlKeyword.In;
-  const vals = expr.values.map(literalToString).join(', ');
-  return `${expr.field} ${op} (${vals})`;
+  const keyword = expr.not ? SqlKeyword.NotIn : SqlKeyword.In;
+  const serializedValues = expr.values.map(literalToString).join(', ');
+  return `${expr.field} ${keyword} (${serializedValues})`;
 }
 
 function betweenToString(expr: BetweenExpr): string {
-  const op = expr.not ? SqlKeyword.NotBetween : SqlKeyword.Between;
-  return `${expr.field} ${op} ${literalToString(expr.low)} ${SqlKeyword.And} ${literalToString(expr.high)}`;
+  const keyword = expr.not ? SqlKeyword.NotBetween : SqlKeyword.Between;
+  return `${expr.field} ${keyword} ${literalToString(expr.low)} ${SqlKeyword.And} ${literalToString(expr.high)}`;
 }
 
 function isNullToString(expr: IsNullExpr): string {

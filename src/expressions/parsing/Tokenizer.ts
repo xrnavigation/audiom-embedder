@@ -104,8 +104,8 @@ export class Tokenizer {
   private tryReadOperator(startPos: number): Token | null {
     // Try two-character operators first
     if (this.pos + 1 < this.input.length) {
-      const twoChar = this.input.slice(this.pos, this.pos + 2);
-      const canonical = TWO_CHAR_OPERATORS.get(twoChar);
+      const twoCharSlice = this.input.slice(this.pos, this.pos + 2);
+      const canonical = TWO_CHAR_OPERATORS.get(twoCharSlice);
       if (canonical) {
         this.pos += 2;
         return { type: TokenType.Operator, value: canonical, pos: startPos };

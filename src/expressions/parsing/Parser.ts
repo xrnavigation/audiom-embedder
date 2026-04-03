@@ -53,9 +53,9 @@ class Parser {
   }
 
   private expect(type: TokenType): Token {
-    const tok = this.peek();
-    if (tok.type !== type) {
-      throw new Error(`Expected ${type} but got ${tok.type} ('${tok.value}') at position ${tok.pos}`);
+    const token = this.peek();
+    if (token.type !== type) {
+      throw new Error(`Expected ${type} but got ${token.type} ('${token.value}') at position ${token.pos}`);
     }
     return this.advance();
   }
@@ -68,24 +68,24 @@ class Parser {
   }
 
   private parseLiteral(): LiteralValue {
-    const tok = this.peek();
-    if (tok.type === TokenType.String) {
+    const token = this.peek();
+    if (token.type === TokenType.String) {
       this.advance();
-      return tok.value;
+      return token.value;
     }
-    if (tok.type === TokenType.Number) {
+    if (token.type === TokenType.Number) {
       this.advance();
-      return tok.value.includes('.') ? parseFloat(tok.value) : parseInt(tok.value, 10);
+      return token.value.includes('.') ? parseFloat(token.value) : parseInt(token.value, 10);
     }
-    if (tok.type === TokenType.Null) {
+    if (token.type === TokenType.Null) {
       this.advance();
       return null;
     }
-    if (tok.type === TokenType.Timestamp) {
+    if (token.type === TokenType.Timestamp) {
       this.advance();
-      return new Date(tok.value + UTC_SUFFIX);
+      return new Date(token.value + UTC_SUFFIX);
     }
-    throw new Error(`Expected literal value at position ${tok.pos}`);
+    throw new Error(`Expected literal value at position ${token.pos}`);
   }
 
   isAtEnd(): boolean {
