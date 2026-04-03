@@ -3,6 +3,7 @@ import { AudiomEmbedConfig, FilterMode, VisualStyle } from './AudiomEmbedConfig'
 import { StepSize } from './StepSize';
 import { SourceType, MapType } from './AudiomSource';
 import { Coordinates } from './Coordinates';
+import { field } from './expressions/AttributeFilter';
 
 describe('AudiomEmbedConfig query parameters', () => {
   describe('toQueryParams', () => {
@@ -278,7 +279,7 @@ describe('AudiomEmbedConfig query parameters', () => {
           type: SourceType.ESRI,
           url: 'https://example.com/arcgis/layer',
           mapType: MapType.Travel,
-          where: "type='building'"
+          where: field('type').eq('building')
         }]
       });
 
@@ -287,7 +288,7 @@ describe('AudiomEmbedConfig query parameters', () => {
       expect(params['myEsri.type']).toBe(SourceType.ESRI);
       expect(params['myEsri.url']).toBe('https://example.com/arcgis/layer');
       expect(params['myEsri.mapType']).toBe(MapType.Travel);
-      expect(params['myEsri.where']).toBe("type='building'");
+      expect(params['myEsri.where']).toBe("type = 'building'");
     });
   });
 });

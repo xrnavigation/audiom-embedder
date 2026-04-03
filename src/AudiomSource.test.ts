@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { AudiomSource, SourceType, MapType } from './AudiomSource';
+import { field } from './expressions/AttributeFilter';
 
 describe('AudiomSource', () => {
   describe('constructor', () => {
     it('assigns all config properties', () => {
+      const whereExpr = field('type').eq('building');
       const src = new AudiomSource({
         source: 'mySource',
         type: SourceType.ESRI,
@@ -11,7 +13,7 @@ describe('AudiomSource', () => {
         name: 'My Source',
         url: 'https://example.com/service',
         rules: '/rules.json',
-        where: "type='building'",
+        where: whereExpr,
         additionalParams: { foo: 'bar' }
       });
 
@@ -21,7 +23,7 @@ describe('AudiomSource', () => {
       expect(src.name).toBe('My Source');
       expect(src.url).toBe('https://example.com/service');
       expect(src.rules).toBe('/rules.json');
-      expect(src.where).toBe("type='building'");
+      expect(src.where).toBe(whereExpr);
       expect(src.additionalParams).toEqual({ foo: 'bar' });
     });
 
@@ -62,13 +64,14 @@ describe('AudiomSource', () => {
 
   describe('fromEsri', () => {
     it('creates an ESRI source', () => {
+      const whereExpr = field('type').eq('commercial');
       const src = AudiomSource.fromEsri({
         source: 'buildings',
         url: 'https://services.arcgis.com/layer',
         name: 'Buildings',
         mapType: MapType.Indoor,
         rules: '/rules.json',
-        where: "type='commercial'"
+        where: whereExpr
       });
 
       expect(src.source).toBe('buildings');
@@ -77,7 +80,7 @@ describe('AudiomSource', () => {
       expect(src.name).toBe('Buildings');
       expect(src.mapType).toBe(MapType.Indoor);
       expect(src.rules).toBe('/rules.json');
-      expect(src.where).toBe("type='commercial'");
+      expect(src.where).toBe(whereExpr);
     });
 
     it('works with only required fields', () => {
@@ -101,7 +104,7 @@ describe('AudiomSource', () => {
         name: 'Display Name',
         url: 'https://example.com/data',
         rules: '/rules.json',
-        where: "status='active'"
+        where: field('status').eq('active')
       });
 
       const params = src.toQueryParams();
@@ -110,7 +113,7 @@ describe('AudiomSource', () => {
       expect(params['mySource.name']).toBe('Display Name');
       expect(params['mySource.url']).toBe('https://example.com/data');
       expect(params['mySource.rules']).toBe('/rules.json');
-      expect(params['mySource.where']).toBe("status='active'");
+      expect(params['mySource.where']).toBe("status = 'active'");
     });
 
     it('includes additionalParams with namespaced keys', () => {

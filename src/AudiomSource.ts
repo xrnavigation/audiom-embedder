@@ -1,3 +1,8 @@
+import { Expression } from './expressions/Expression';
+import { toString } from './expressions/Serialize';
+import { SpatialFilter } from './expressions/SpatialFilter';
+import { TimeInstant, TimeExtent } from './expressions/TemporalFilter';
+
 /**
  * Map type for rendering sources
  */
@@ -52,9 +57,21 @@ export interface IAudiomSource {
   rules?: string;
 
   /**
-   * Where clause / definition expression to filter features
+   * Where clause / definition expression to filter features.
+   * Use `parse()` to convert raw SQL strings, or the fluent builder
+   * (`field('name').eq('value')`) to construct expressions.
    */
-  where?: string;
+  where?: Expression;
+
+  /**
+   * Spatial filter for geometry-based queries (Esri sources)
+   */
+  spatialFilter?: SpatialFilter;
+
+  /**
+   * Temporal filter for time-aware layers (Esri sources)
+   */
+  time?: TimeInstant | TimeExtent;
 
   /**
    * Additional custom parameters for the source
@@ -72,7 +89,9 @@ export class AudiomSource implements IAudiomSource {
   name?: string;
   url?: string;
   rules?: string;
-  where?: string;
+  where?: Expression;
+  spatialFilter?: SpatialFilter;
+  time?: TimeInstant | TimeExtent;
   additionalParams?: Record<string, string | number | boolean>;
 
   constructor(config: IAudiomSource) {
@@ -83,6 +102,8 @@ export class AudiomSource implements IAudiomSource {
     this.url = config.url;
     this.rules = config.rules;
     this.where = config.where;
+    this.spatialFilter = config.spatialFilter;
+    this.time = config.time;
     this.additionalParams = config.additionalParams;
   }
 
@@ -113,7 +134,9 @@ export class AudiomSource implements IAudiomSource {
     name?: string;
     mapType?: MapType;
     rules?: string;
-    where?: string;
+    where?: Expression;
+    spatialFilter?: SpatialFilter;
+    time?: TimeInstant | TimeExtent;
   }): AudiomSource {
     return new AudiomSource({
       source: config.source,
@@ -122,7 +145,9 @@ export class AudiomSource implements IAudiomSource {
       name: config.name,
       mapType: config.mapType,
       rules: config.rules,
-      where: config.where
+      where: config.where,
+      spatialFilter: config.spatialFilter,
+      time: config.time
     });
   }
 
@@ -151,7 +176,16 @@ export class AudiomSource implements IAudiomSource {
       params[`${sourceName}.rules`] = this.rules;
     }
     if (this.where) {
-      params[`${sourceName}.where`] = this.where;
+      params[`${sourceName}.where`] = toString(this.where);
+    }
+    if (this.spatialFilter) {
+      const spatialParams = this.spatialFilter.toQueryParams();
+      Object.entries(spatialParams).forEach(([key, value]) => {
+        params[`${sourceName}.${key}`] = value;
+      });
+    }
+    if (this.time) {
+      params[`${sourceName}.time`] = this.time.toQueryParam();
     }
     if (this.additionalParams) {
       Object.entries(this.additionalParams).forEach(([key, value]) => {
