@@ -25,8 +25,10 @@ export class Tokenizer {
     this.input = input;
   }
 
+  private tokens: Token[] = [];
+
   tokenize(): Token[] {
-    const tokens: Token[] = [];
+    this.tokens = [];
 
     while (this.pos < this.input.length) {
       this.skipWhitespace();
@@ -34,12 +36,16 @@ export class Tokenizer {
 
       const token = this.readNextToken();
       if (token) {
-        tokens.push(token);
+        this.tokens.push(token);
       }
     }
 
-    tokens.push({ type: TokenType.Eof, value: '', pos: this.input.length });
-    return tokens;
+    this.tokens.push({ type: TokenType.Eof, value: '', pos: this.input.length });
+    return this.tokens;
+  }
+
+  private previousTokenType(): TokenType | null {
+    return this.tokens.length > 0 ? this.tokens[this.tokens.length - 1].type : null;
   }
 
   private peek(): string {
@@ -125,7 +131,15 @@ export class Tokenizer {
     const char = this.peek();
     const negativeSign = '-';
     if (DIGIT_PATTERN.test(char)) return true;
-    return char === negativeSign && this.peekAt(1) !== undefined && DIGIT_PATTERN.test(this.peekAt(1)!);
+    // Only treat '-' as a negative sign when preceded by an operator, opening
+    // paren, comma, or at the very start of the input — never immediately
+    // after an identifier or number (e.g. "x >-5" should tokenize as '>' then '-5',
+    // but "x-5" should not swallow the '-5' as a standalone negative number).
+    if (char === negativeSign && this.peekAt(1) !== undefined && DIGIT_PATTERN.test(this.peekAt(1)!)) {
+      const prev = this.previousTokenType();
+      return prev === null || prev === TokenType.Operator || prev === TokenType.LeftParen || prev === TokenType.Comma;
+    }
+    return false;
   }
 
   private readNumberLiteral(startPos: number): Token {

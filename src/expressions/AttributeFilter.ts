@@ -148,6 +148,9 @@ export function not(child: Expression): NotExpr {
  * Escape hatch: embed a raw SQL string as an expression node.
  * Use this for vendor-specific syntax not covered by the typed builder
  * (e.g., `CURRENT_USER`, `position()`, Esri-specific functions).
+ *
+ * **Security:** The SQL string is emitted verbatim with no escaping.
+ * Never pass untrusted / user-supplied input directly to this function.
  */
 export function raw(sql: string): RawExpr {
   return { type: ExpressionType.Raw, sql };

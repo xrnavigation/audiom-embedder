@@ -22,7 +22,7 @@ export {
   DistanceUnit,
   SpatialFilter
 } from './SpatialFilter';
-export type { EsriEnvelope, EsriPoint, GeometryInput } from './SpatialFilter';
+export type { ISpatialFilter, EsriEnvelope, EsriPoint, GeometryInput } from './SpatialFilter';
 
 export {
   TimeInstant,
