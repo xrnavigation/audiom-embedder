@@ -16,6 +16,7 @@ on:
 env:
   NODE_VERSION: ${{ vars.NODE_VERSION && vars.NODE_VERSION || '20' }}
   REGISTRY: https://npm.pkg.github.com
+  NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   package:
@@ -31,7 +32,7 @@ jobs:
         testCommand: npm run test:coverage
         uploadCoverage: true
         authUrls: ${{ env.REGISTRY }}
-        apiKeys: ${{ github.token }}
+        apiKeys: ${{ env.NODE_AUTH_TOKEN }}
 
     - name: "Get version from package.json"
       id: version
@@ -63,5 +64,5 @@ jobs:
       with:
         tgz: ${{ steps.pack.outputs.tgz }}
         registry: ${{ env.REGISTRY }}
-        apiKey: ${{ github.token }}
+        apiKey: ${{ env.NODE_AUTH_TOKEN }}
         access: public
