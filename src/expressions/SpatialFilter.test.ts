@@ -4,8 +4,8 @@ import {
   SpatialRelationship,
   GeometryType,
   DistanceUnit
-} from './SpatialFilter';
-import type { EsriEnvelope, EsriPoint } from './SpatialFilter';
+} from './spatial/EsriSpatialFilter';
+import type { EsriEnvelope, EsriPoint } from './spatial/EsriSpatialFilter';
 
 describe('SpatialFilter', () => {
   describe('static builders', () => {

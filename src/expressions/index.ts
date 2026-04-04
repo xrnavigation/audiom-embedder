@@ -21,8 +21,12 @@ export {
   GeometryType,
   DistanceUnit,
   SpatialFilter
-} from './SpatialFilter';
-export type { ISpatialFilter, EsriEnvelope, EsriPoint, GeometryInput } from './SpatialFilter';
+} from './spatial/EsriSpatialFilter';
+export type { ISpatialFilter, EsriEnvelope, EsriPoint, GeometryInput } from './spatial/EsriSpatialFilter';
+
+export type { BoundingBox } from './spatial';
+export { bbox, toOgcBboxParam, toOverpassBboxFilter, toEsriEnvelope } from './spatial';
+export { OverpassAroundFilter } from './spatial';
 
 export {
   TimeInstant,
@@ -31,11 +35,14 @@ export {
   CompoundIntervalUnit,
   interval,
   intervalToString
-} from './TemporalFilter';
-export type { IntervalExpression } from './TemporalFilter';
+} from './temporal/EsriTemporalFilter';
+export type { IntervalExpression } from './temporal/EsriTemporalFilter';
 
-export { toString } from './Serialize';
+export { DateTimeInstant, DateTimeInterval, toRfc3339 } from './temporal';
+
 export { parse } from './parsing';
+
+export { toEsriSql, toCql2Text, toOverpassFilters, UnsupportedOverpassExpressionError } from './serializers';
 
 export {
   SortOrder,
@@ -43,3 +50,16 @@ export {
   orderByFieldsToString
 } from './QueryOptions';
 export type { OrderByField, PaginationOptions } from './QueryOptions';
+
+export {
+  toEsriParams,
+  toOgcParams,
+  toOverpassQuery,
+  OverpassElementType,
+} from './SourceTypeSerializer';
+export type {
+  EsriParamOptions,
+  OgcParamOptions,
+  OverpassQueryOptions,
+  OverpassOutputOptions,
+} from './SourceTypeSerializer';

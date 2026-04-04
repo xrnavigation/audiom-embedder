@@ -6,7 +6,7 @@ import {
   CompoundIntervalUnit,
   interval,
   intervalToString
-} from './TemporalFilter';
+} from './temporal/EsriTemporalFilter';
 
 describe('TimeInstant', () => {
   it('fromEpochMs() stores epoch ms', () => {

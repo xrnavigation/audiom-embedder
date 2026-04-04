@@ -2,6 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { AudiomSource, SourceType, MapType } from './AudiomSource';
 import { field } from './expressions/AttributeFilter';
 import { orderBy, SortOrder } from './expressions/QueryOptions';
+import { bbox } from './expressions/spatial/BoundingBox';
+import { DateTimeInstant, DateTimeInterval } from './expressions/temporal/DateTimeFilter';
+import { OverpassAroundFilter } from './expressions/spatial/OverpassSpatialFilter';
+import { OverpassElementType } from './expressions/SourceTypeSerializer';
 
 describe('AudiomSource', () => {
   describe('constructor', () => {
@@ -186,6 +190,174 @@ describe('AudiomSource', () => {
       const params = src.toQueryParams();
       expect(params['layer.resultRecordCount']).toBe('25');
       expect(params['layer.resultOffset']).toBe('100');
+    });
+  });
+
+  describe('fromOgc', () => {
+    it('creates a TDEI/OGC source', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com/collections/sidewalks/items',
+        name: 'Sidewalks',
+      });
+      expect(src.type).toBe(SourceType.TDEI);
+      expect(src.url).toBe('https://tdei.example.com/collections/sidewalks/items');
+      expect(src.name).toBe('Sidewalks');
+    });
+
+    it('serializes OGC params with CQL2 filter', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        where: field('surface').eq('concrete'),
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.filter']).toBe("surface = 'concrete'");
+      expect(params['sidewalks.filter-lang']).toBe('cql2-text');
+    });
+
+    it('serializes OGC bbox param', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        bbox: bbox(-122.5, 37.5, -122.0, 38.0),
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.bbox']).toBe('-122.5,37.5,-122,38');
+    });
+
+    it('serializes OGC datetime instant', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        datetime: DateTimeInstant.fromDate(new Date(Date.UTC(2024, 0, 15))),
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.datetime']).toBe('2024-01-15T00:00:00Z');
+    });
+
+    it('serializes OGC datetime interval', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        datetime: DateTimeInterval.create(
+          new Date(Date.UTC(2024, 0, 1)),
+          new Date(Date.UTC(2024, 5, 30))
+        ),
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.datetime']).toBe('2024-01-01T00:00:00Z/2024-06-30T00:00:00Z');
+    });
+
+    it('serializes OGC pagination as limit/offset', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        pagination: { count: 50, offset: 100 },
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.limit']).toBe('50');
+      expect(params['sidewalks.offset']).toBe('100');
+    });
+
+    it('serializes OGC sortby with +/- prefix', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        orderByFields: [orderBy('name'), orderBy('length', SortOrder.Descending)],
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.sortby']).toBe('+name,-length');
+    });
+
+    it('serializes OGC outFields as properties', () => {
+      const src = AudiomSource.fromOgc({
+        source: 'sidewalks',
+        url: 'https://tdei.example.com',
+        outFields: ['name', 'surface'],
+      });
+      const params = src.toQueryParams();
+      expect(params['sidewalks.properties']).toBe('name,surface');
+    });
+  });
+
+  describe('fromOverpass', () => {
+    it('creates an OSM/Overpass source', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+        name: 'Footways',
+      });
+      expect(src.type).toBe(SourceType.OSM);
+      expect(src.name).toBe('Footways');
+    });
+
+    it('serializes Overpass QL query with tag filters', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+        where: field('highway').eq('footway'),
+      });
+      const params = src.toQueryParams();
+      expect(params['footways.data']).toBe(
+        '[out:json][timeout:25];nwr["highway"="footway"];out body geom;'
+      );
+    });
+
+    it('serializes Overpass QL with bbox', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+        where: field('highway').eq('footway'),
+        bbox: bbox(7, 50, 8, 51),
+      });
+      const params = src.toQueryParams();
+      expect(params['footways.data']).toBe(
+        '[out:json][timeout:25];nwr["highway"="footway"](50,7,51,8);out body geom;'
+      );
+    });
+
+    it('serializes Overpass QL with around filter', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+        where: field('highway').eq('footway'),
+        aroundFilter: OverpassAroundFilter.aroundPoint(500, 48.8566, 2.3522),
+      });
+      const params = src.toQueryParams();
+      expect(params['footways.data']).toBe(
+        '[out:json][timeout:25];nwr["highway"="footway"](around:500,48.8566,2.3522);out body geom;'
+      );
+    });
+
+    it('serializes Overpass QL with date setting', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+        where: field('highway').eq('footway'),
+        datetime: DateTimeInstant.fromDate(new Date(Date.UTC(2024, 0, 15))),
+      });
+      const params = src.toQueryParams();
+      expect(params['footways.data']).toContain('[date:"2024-01-15T00:00:00Z"]');
+    });
+
+    it('serializes Overpass QL with custom output options', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+        where: field('highway').eq('footway'),
+        overpassOptions: {
+          timeout: 60,
+          elementType: OverpassElementType.Way,
+          maxResults: 100,
+        },
+      });
+      const params = src.toQueryParams();
+      expect(params['footways.data']).toBe(
+        '[out:json][timeout:60];way["highway"="footway"];out body geom 100;'
+      );
+    });
+
+    it('returns no data param when no query options are set', () => {
+      const src = AudiomSource.fromOverpass({
+        source: 'footways',
+      });
+      const params = src.toQueryParams();
+      expect(params['footways.data']).toBeUndefined();
     });
   });
 });

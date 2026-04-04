@@ -14,6 +14,9 @@ This library provides a complete set of TypeScript interfaces, classes, and util
 - ✅ **URL generation** from configuration objects
 - ✅ **PostMessage handler** for iframe communication
 - ✅ **Multi-source support** with namespaced parameters
+- ✅ **Multi-source query serialization** — Esri SQL, OGC CQL2-Text, Overpass QL
+- ✅ **Typed expression builder** with fluent API and SQL parsing
+- ✅ **Spatial & temporal filters** — vendor-neutral and source-specific
 - ✅ **Step size utilities** with multiple unit support
 
 ## Installation
@@ -25,7 +28,14 @@ import {
   Coordinates,
   StepSize,
   MapType,
-  AudiomMessageHandler
+  AudiomMessageHandler,
+  // Expression builder
+  field, and, or, not, toEsriSql, parse,
+  // Multi-source serializers
+  toEsriParams, toOgcParams, toOverpassQuery,
+  // Spatial & temporal
+  SpatialFilter, bbox, OverpassAroundFilter,
+  TimeInstant, TimeExtent, DateTimeInstant, DateTimeInterval
 } from 'audiom-embedder';
 ```
 
@@ -110,6 +120,32 @@ const source = AudiomSource.fromGeoJsonUrl(
 );
 ```
 
+### OGC API Features (TDEI)
+
+```typescript
+const source = AudiomSource.fromOgc({
+  source: 'sidewalks',
+  url: 'https://tdei.example.com/collections/sidewalks',
+  where: field('surface').eq('concrete'),
+  bbox: bbox(-122.35, 47.60, -122.30, 47.65),
+  datetime: DateTimeInterval.create(
+    new Date(Date.UTC(2024, 0, 1)),
+    null // open-ended (to present)
+  )
+});
+```
+
+### Overpass / OSM
+
+```typescript
+const source = AudiomSource.fromOverpass({
+  source: 'cafes',
+  where: field('amenity').eq('cafe'),
+  bbox: bbox(-122.42, 37.76, -122.38, 37.80),
+  aroundFilter: OverpassAroundFilter.aroundPoint(500, 37.78, -122.40)
+});
+```
+
 ### Mixed Source Types
 
 ```typescript
@@ -121,6 +157,10 @@ const config = AudiomEmbedConfig.dynamic({
       source: 'indoor',
       url: 'https://...',
       mapType: MapType.Indoor
+    }),
+    AudiomSource.fromOgc({
+      source: 'sidewalks',
+      url: 'https://tdei.example.com/collections/sidewalks'
     }),
     AudiomSource.fromGeoJsonUrl('https://example.com/data.geojson')
   ]
@@ -234,11 +274,24 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 ### Classes
 
 - **`AudiomEmbedConfig`** - Main configuration class for embed maps
-- **`AudiomSource`** - Data source configuration
+- **`AudiomSource`** - Data source configuration (factories: `fromEsri`, `fromOgc`, `fromOverpass`, `fromName`, `fromGeoJsonUrl`)
 - **`StepSize`** - Step size with unit support
 - **`Coordinates`** - Geographic coordinate (longitude, latitude)
 - **`GeoQuad`** - Geographic quadrilateral (4 corners)
 - **`AudiomMessageHandler`** - Bidirectional PostMessage communication handler
+- **`SpatialFilter`** - Esri spatial query filter
+- **`OverpassAroundFilter`** - Overpass proximity filter
+- **`TimeInstant`** / **`TimeExtent`** - Esri temporal filters (epoch-based)
+- **`DateTimeInstant`** / **`DateTimeInterval`** - Vendor-neutral temporal filters (Date-based)
+
+### Serializers
+
+- **`toEsriSql(expr)`** - Expression → Esri SQL-92 WHERE clause
+- **`toCql2Text(expr)`** - Expression → OGC CQL2-Text
+- **`toOverpassFilters(expr)`** - Expression → Overpass QL tag filters
+- **`toEsriParams(options)`** - Full Esri REST query parameters
+- **`toOgcParams(options)`** - Full OGC API Features parameters
+- **`toOverpassQuery(options)`** - Complete Overpass QL query body
 
 ### Enums
 
@@ -247,11 +300,17 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 - **`StepSizeUnit`** - `Kilometers`, `Meters`, `Miles`, `Feet`
 - **`VisualStyle`** - `Geology`, `Indoor`, `Outdoor`, `Travel`
 - **`FilterMode`** - `Global`, `Scan`
+- **`SpatialRelationship`** - `Intersects`, `Contains`, `Within`, etc.
+- **`GeometryType`** - `Point`, `Multipoint`, `Polyline`, `Polygon`, `Envelope`
+- **`SortOrder`** - `Ascending`, `Descending`
+- **`OverpassElementType`** - `Node`, `Way`, `Relation`, `Nwr`
 
 ### Types
 
 - **`IAudiomEmbedConfig`** - Configuration interface
 - **`IAudiomSource`** - Source interface
+- **`BoundingBox`** - Vendor-neutral bounding box (`{ west, south, east, north }`)
+- **`Expression`** - Discriminated union of filter expression AST nodes
 - **`AudiomOutboundMessage`** - Discriminated union of all outbound event messages
 - **`AudiomInboundCommand`** - Discriminated union of all inbound command messages
 

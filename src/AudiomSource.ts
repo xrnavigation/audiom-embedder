@@ -1,8 +1,12 @@
 import { Expression } from './expressions/Expression';
-import { toString } from './expressions/Serialize';
-import { SpatialFilter } from './expressions/SpatialFilter';
-import { TimeInstant, TimeExtent } from './expressions/TemporalFilter';
-import { OrderByField, PaginationOptions, orderByFieldsToString } from './expressions/QueryOptions';
+import { SpatialFilter } from './expressions/spatial/EsriSpatialFilter';
+import { TimeInstant, TimeExtent } from './expressions/temporal/EsriTemporalFilter';
+import { OrderByField, PaginationOptions } from './expressions/QueryOptions';
+import type { BoundingBox } from './expressions/spatial/BoundingBox';
+import { DateTimeInstant, DateTimeInterval } from './expressions/temporal/DateTimeFilter';
+import { toEsriParams, toOgcParams, toOverpassQuery } from './expressions/SourceTypeSerializer';
+import type { OverpassOutputOptions } from './expressions/SourceTypeSerializer';
+import type { OverpassAroundFilter } from './expressions/spatial/OverpassSpatialFilter';
 
 /**
  * Map type for rendering sources
@@ -94,6 +98,32 @@ export interface IAudiomSource {
   pagination?: PaginationOptions;
 
   /**
+   * Vendor-neutral bounding box filter.
+   * Used by OGC/TDEI (`bbox` param) and OSM/Overpass (bbox filter).
+   * For Esri sources, prefer `spatialFilter` with `SpatialFilter.fromEnvelope()`.
+   */
+  bbox?: BoundingBox;
+
+  /**
+   * Vendor-neutral date/time filter.
+   * Used by OGC/TDEI (`datetime` param) and Overpass (date setting).
+   * For Esri sources, prefer the `time` property.
+   */
+  datetime?: DateTimeInstant | DateTimeInterval;
+
+  /**
+   * Overpass proximity (around) filter.
+   * Only applies to OSM/Overpass sources.
+   */
+  aroundFilter?: OverpassAroundFilter;
+
+  /**
+   * Overpass output options (format, timeout, element type, maxResults).
+   * Only applies to OSM/Overpass sources.
+   */
+  overpassOptions?: OverpassOutputOptions;
+
+  /**
    * Additional custom parameters for the source
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -115,6 +145,10 @@ export class AudiomSource implements IAudiomSource {
   outFields?: string[];
   orderByFields?: OrderByField[];
   pagination?: PaginationOptions;
+  bbox?: BoundingBox;
+  datetime?: DateTimeInstant | DateTimeInterval;
+  aroundFilter?: OverpassAroundFilter;
+  overpassOptions?: OverpassOutputOptions;
   additionalParams?: Record<string, string | number | boolean>;
 
   constructor(config: IAudiomSource) {
@@ -130,6 +164,10 @@ export class AudiomSource implements IAudiomSource {
     this.outFields = config.outFields;
     this.orderByFields = config.orderByFields;
     this.pagination = config.pagination;
+    this.bbox = config.bbox;
+    this.datetime = config.datetime;
+    this.aroundFilter = config.aroundFilter;
+    this.overpassOptions = config.overpassOptions;
     this.additionalParams = config.additionalParams;
   }
 
@@ -184,8 +222,72 @@ export class AudiomSource implements IAudiomSource {
   }
 
   /**
-   * Convert to URL query parameters
-   * Returns an object with namespaced parameters for multi-source configuration
+   * Create an OGC API Features source (also used for TDEI).
+   */
+  static fromOgc(config: {
+    source: string;
+    url: string;
+    name?: string;
+    mapType?: MapType;
+    rules?: string;
+    where?: Expression;
+    bbox?: BoundingBox;
+    datetime?: DateTimeInstant | DateTimeInterval;
+    outFields?: string[];
+    orderByFields?: OrderByField[];
+    pagination?: PaginationOptions;
+  }): AudiomSource {
+    return new AudiomSource({
+      source: config.source,
+      type: SourceType.TDEI,
+      url: config.url,
+      name: config.name,
+      mapType: config.mapType,
+      rules: config.rules,
+      where: config.where,
+      bbox: config.bbox,
+      datetime: config.datetime,
+      outFields: config.outFields,
+      orderByFields: config.orderByFields,
+      pagination: config.pagination,
+    });
+  }
+
+  /**
+   * Create an OSM / Overpass API source.
+   */
+  static fromOverpass(config: {
+    source: string;
+    url?: string;
+    name?: string;
+    where?: Expression;
+    bbox?: BoundingBox;
+    aroundFilter?: OverpassAroundFilter;
+    datetime?: DateTimeInstant;
+    overpassOptions?: OverpassOutputOptions;
+  }): AudiomSource {
+    return new AudiomSource({
+      source: config.source,
+      type: SourceType.OSM,
+      url: config.url,
+      name: config.name,
+      where: config.where,
+      bbox: config.bbox,
+      aroundFilter: config.aroundFilter,
+      datetime: config.datetime,
+      overpassOptions: config.overpassOptions,
+    });
+  }
+
+  /**
+   * Convert to URL query parameters.
+   * Returns an object with namespaced parameters for multi-source configuration.
+   *
+   * Delegates to source-type-specific serialization:
+   * - ESRI: Esri REST API parameters (where, geometryType, spatialRel, time, etc.)
+   * - TDEI: OGC API Features parameters (filter, bbox, datetime, limit, etc.)
+   * - OSM: Overpass QL query body in a `data` parameter
+   * - GeoJSON: minimal params (no server-side query support)
    */
   toQueryParams(): Record<string, string> {
     const params: Record<string, string> = {};
@@ -207,30 +309,13 @@ export class AudiomSource implements IAudiomSource {
     if (this.rules) {
       params[`${sourceName}.rules`] = this.rules;
     }
-    if (this.where) {
-      params[`${sourceName}.where`] = toString(this.where);
-    }
-    if (this.spatialFilter) {
-      const spatialParams = this.spatialFilter.toQueryParams();
-      Object.entries(spatialParams).forEach(([key, value]) => {
-        params[`${sourceName}.${key}`] = value;
-      });
-    }
-    if (this.time) {
-      params[`${sourceName}.time`] = this.time.toQueryParam();
-    }
-    if (this.outFields && this.outFields.length > 0) {
-      params[`${sourceName}.outFields`] = this.outFields.join(',');
-    }
-    if (this.orderByFields && this.orderByFields.length > 0) {
-      params[`${sourceName}.orderByFields`] = orderByFieldsToString(this.orderByFields);
-    }
-    if (this.pagination) {
-      params[`${sourceName}.resultRecordCount`] = String(this.pagination.count);
-      if (this.pagination.offset !== undefined) {
-        params[`${sourceName}.resultOffset`] = String(this.pagination.offset);
-      }
-    }
+
+    // Source-type-specific query parameter delegation
+    const sourceTypeParams = this.serializeQueryOptions();
+    Object.entries(sourceTypeParams).forEach(([key, value]) => {
+      params[`${sourceName}.${key}`] = value;
+    });
+
     if (this.additionalParams) {
       Object.entries(this.additionalParams).forEach(([key, value]) => {
         params[`${sourceName}.${key}`] = String(value);
@@ -238,5 +323,58 @@ export class AudiomSource implements IAudiomSource {
     }
 
     return params;
+  }
+
+  /**
+   * Serialize query-related options using the appropriate strategy
+   * for the source type.
+   */
+  private serializeQueryOptions(): Record<string, string> {
+    switch (this.type) {
+      case SourceType.TDEI:
+        return toOgcParams({
+          where: this.where,
+          bbox: this.bbox,
+          datetime: this.datetime,
+          outFields: this.outFields,
+          orderByFields: this.orderByFields,
+          pagination: this.pagination,
+        });
+
+      case SourceType.OSM:
+        if (this.where || this.bbox || this.aroundFilter || this.datetime) {
+          const datetimeInstant = this.datetime instanceof DateTimeInstant
+            ? this.datetime
+            : undefined;
+          return {
+            data: toOverpassQuery({
+              where: this.where,
+              bbox: this.bbox,
+              aroundFilter: this.aroundFilter,
+              datetime: datetimeInstant,
+              outputOptions: this.overpassOptions,
+            }),
+          };
+        }
+        return {};
+
+      default:
+        // Default to Esri behavior (covers SourceType.ESRI, GeoJSON, and unknown types)
+        return this.serializeEsriQueryOptions();
+    }
+  }
+
+  /**
+   * Esri-specific query parameter serialization (original behavior).
+   */
+  private serializeEsriQueryOptions(): Record<string, string> {
+    return toEsriParams({
+      where: this.where,
+      spatialFilter: this.spatialFilter,
+      time: this.time,
+      outFields: this.outFields,
+      orderByFields: this.orderByFields,
+      pagination: this.pagination,
+    });
   }
 }
