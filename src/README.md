@@ -14,6 +14,9 @@ This library provides a complete set of TypeScript interfaces, classes, and util
 - ✅ **URL generation** from configuration objects
 - ✅ **Bidirectional PostMessage API** for iframe communication
 - ✅ **Multi-source support** with namespaced parameters
+- ✅ **Multi-source query serialization** — Esri SQL, OGC CQL2-Text, Overpass QL
+- ✅ **Typed expression builder** with fluent API and SQL parsing
+- ✅ **Spatial & temporal filters** — vendor-neutral and source-specific
 - ✅ **Step size utilities** with multiple unit support
 - ✅ **Feature filters** with global and scan modes
 
@@ -29,7 +32,20 @@ import {
   VisualStyle,
   AudiomMessageHandler,
   AudiomOutboundEventType,
-  AudiomInboundCommandType
+  AudiomInboundCommandType,
+  // Expression builder
+  field, and, or, not, raw, toEsriSql, toCql2Text, toOverpassFilters, parse,
+  // Multi-source serializers
+  toEsriParams, toOgcParams, toOverpassQuery,
+  // Spatial
+  SpatialFilter, GeometryType, DistanceUnit,
+  bbox, toOgcBboxParam, toOverpassBboxFilter,
+  OverpassAroundFilter,
+  // Temporal
+  TimeInstant, TimeExtent,
+  DateTimeInstant, DateTimeInterval,
+  // Query options
+  orderBy, SortOrder
 } from './audiom-client';
 ```
 
@@ -114,6 +130,39 @@ const source = AudiomSource.fromGeoJsonUrl(
 );
 ```
 
+### OGC API Features (TDEI)
+
+```typescript
+const source = AudiomSource.fromOgc({
+  source: 'sidewalks',
+  url: 'https://tdei.example.com/collections/sidewalks',
+  where: field('surface').eq('concrete'),
+  bbox: bbox(-122.35, 47.60, -122.30, 47.65),
+  datetime: DateTimeInterval.create(
+    new Date(Date.UTC(2024, 0, 1)),
+    null // open-ended (to present)
+  ),
+  orderByFields: [orderBy('name', SortOrder.Ascending)],
+  pagination: { count: 100 }
+});
+```
+
+### Overpass / OSM
+
+```typescript
+const source = AudiomSource.fromOverpass({
+  source: 'cafes',
+  where: field('amenity').eq('cafe'),
+  bbox: bbox(-122.42, 37.76, -122.38, 37.80),
+  aroundFilter: OverpassAroundFilter.aroundPoint(500, 37.78, -122.40),
+  overpassOptions: {
+    format: 'json',
+    timeout: 30,
+    elementType: OverpassElementType.Nwr
+  }
+});
+```
+
 ### Mixed Source Types
 
 ```typescript
@@ -125,6 +174,10 @@ const config = AudiomEmbedConfig.dynamic({
       source: 'indoor',
       url: 'https://...',
       mapType: MapType.Indoor
+    }),
+    AudiomSource.fromOgc({
+      source: 'sidewalks',
+      url: 'https://tdei.example.com/collections/sidewalks'
     }),
     AudiomSource.fromGeoJsonUrl('https://example.com/data.geojson')
   ]
@@ -151,7 +204,7 @@ For sources that support query filtering (e.g., Esri feature services), you can 
 ### Building Expressions
 
 ```typescript
-import { field, and, or, not, raw, toString, parse } from 'audiom-embedder';
+import { field, and, or, not, raw, toEsriSql, parse } from 'audiom-embedder';
 
 // Simple comparison
 const expr = field('status').eq('active');
@@ -176,11 +229,11 @@ const expr = and(
     field('floors').gte(10)
   )
 );
-toString(expr);
+toEsriSql(expr);
 // → type = 'building' AND (height > 100 OR floors >= 10)
 
 // NOT
-toString(not(field('status').eq('demolished')));
+toEsriSql(not(field('status').eq('demolished')));
 // → NOT (status = 'demolished')
 ```
 
@@ -212,7 +265,7 @@ field('notes').isNotNull();    // notes IS NOT NULL
 ```typescript
 // Date values serialize as TIMESTAMP literals
 const cutoff = new Date(Date.UTC(2024, 0, 15, 10, 30, 0));
-toString(field('created').gt(cutoff));
+toEsriSql(field('created').gt(cutoff));
 // → created > TIMESTAMP '2024-01-15 10:30:00'
 ```
 
@@ -223,7 +276,7 @@ For vendor-specific syntax not covered by the typed builder:
 ```typescript
 // ⚠️ Never pass untrusted user input to raw()
 const expr = raw("position(current_user in workersfield) > 0");
-toString(expr);
+toEsriSql(expr);
 // → position(current_user in workersfield) > 0
 ```
 
@@ -236,7 +289,7 @@ const expr = parse("type = 'building' AND status = 'active'");
 // → LogicalExpr { op: 'AND', children: [ComparisonExpr, ComparisonExpr] }
 
 // Round-trip: parse then serialize
-toString(parse("name LIKE 'Main%'"));
+toEsriSql(parse("name LIKE 'Main%'"));
 // → name LIKE 'Main%'
 
 // Unparseable syntax falls back to RawExpr instead of throwing
@@ -260,13 +313,15 @@ const source = AudiomSource.fromEsri({
 
 ### Spatial Filters
 
-Constrain queries to features with a specific spatial relationship to an input geometry:
+#### Esri Spatial Filters
+
+Constrain Esri queries to features with a specific spatial relationship to an input geometry:
 
 ```typescript
 import { SpatialFilter, GeometryType, DistanceUnit } from 'audiom-embedder';
 
 // Bounding box intersection
-const bbox = SpatialFilter.fromEnvelope(-123, 37, -122, 38, 4326);
+const envelope = SpatialFilter.fromEnvelope(-123, 37, -122, 38, 4326);
 
 // Point with distance buffer
 const nearby = SpatialFilter.withinDistance(
@@ -276,7 +331,7 @@ const nearby = SpatialFilter.withinDistance(
   DistanceUnit.Meter
 );
 
-// Apply to a source
+// Apply to an Esri source
 const source = AudiomSource.fromEsri({
   source: 'poi',
   url: 'https://services.arcgis.com/.../FeatureServer/0',
@@ -284,9 +339,45 @@ const source = AudiomSource.fromEsri({
 });
 ```
 
+#### Vendor-Neutral Bounding Box
+
+Use `bbox()` for OGC and Overpass sources. Converts automatically to the target format:
+
+```typescript
+import { bbox, toOgcBboxParam, toOverpassBboxFilter, toEsriEnvelope } from 'audiom-embedder';
+
+const box = bbox(-122.42, 37.76, -122.38, 37.80);
+
+toOgcBboxParam(box);          // "-122.42,37.76,-122.38,37.8"
+toOverpassBboxFilter(box);    // "(37.76,-122.42,37.8,-122.38)"
+toEsriEnvelope(box, 4326);   // { xmin, ymin, xmax, ymax, spatialReference: { wkid: 4326 } }
+
+// Apply to an OGC source
+AudiomSource.fromOgc({ source: 'sidewalks', url: '...', bbox: box });
+
+// Apply to an Overpass source
+AudiomSource.fromOverpass({ source: 'cafes', bbox: box });
+```
+
+#### Overpass Proximity Filter
+
+```typescript
+import { OverpassAroundFilter } from 'audiom-embedder';
+
+// Find features within 500m of a point
+const around = OverpassAroundFilter.aroundPoint(500, 37.78, -122.40);
+
+// Chain with a previous result set
+const aroundSet = OverpassAroundFilter.aroundSet(200);
+
+AudiomSource.fromOverpass({ source: 'cafes', aroundFilter: around });
+```
+
 ### Temporal Filters
 
-Filter time-aware layers by instant or range:
+#### Esri Temporal Filters (Epoch-Based)
+
+Filter time-aware Esri layers by instant or range:
 
 ```typescript
 import { TimeInstant, TimeExtent } from 'audiom-embedder';
@@ -303,12 +394,110 @@ const range = TimeExtent.fromDates(
 // Open-ended range (from a date to present)
 const since = TimeExtent.fromDates(new Date(Date.UTC(2024, 0, 1)), null);
 
-// Apply to a source
-const source = AudiomSource.fromEsri({
+// Apply to an Esri source
+AudiomSource.fromEsri({
   source: 'events',
   url: 'https://services.arcgis.com/.../FeatureServer/0',
   time: range
 });
+```
+
+#### Vendor-Neutral DateTime Filters (RFC 3339)
+
+Use `DateTimeInstant` and `DateTimeInterval` for OGC and Overpass sources:
+
+```typescript
+import { DateTimeInstant, DateTimeInterval } from 'audiom-embedder';
+
+// Single instant → RFC 3339
+const instant = DateTimeInstant.fromDate(new Date(Date.UTC(2024, 6, 1)));
+instant.toRfc3339(); // "2024-07-01T00:00:00Z"
+
+// Date range for OGC datetime parameter
+const interval = DateTimeInterval.create(
+  new Date(Date.UTC(2024, 0, 1)),
+  new Date(Date.UTC(2024, 11, 31))
+);
+interval.toOgcDateTimeParam(); // "2024-01-01T00:00:00Z/2024-12-31T00:00:00Z"
+
+// Apply to an OGC source
+AudiomSource.fromOgc({ source: 'sidewalks', url: '...', datetime: interval });
+
+// Apply to an Overpass source (instant only)
+AudiomSource.fromOverpass({ source: 'cafes', datetime: instant });
+```
+
+### Query Options
+
+Sort and paginate results on any source type:
+
+```typescript
+import { orderBy, SortOrder } from 'audiom-embedder';
+
+AudiomSource.fromEsri({
+  source: 'buildings',
+  url: 'https://services.arcgis.com/.../FeatureServer/0',
+  outFields: ['name', 'height', 'floors'],
+  orderByFields: [orderBy('height', SortOrder.Descending)],
+  pagination: { count: 50, offset: 0 }
+});
+```
+
+## Multi-Source Query Serialization
+
+Expression ASTs are serialized differently depending on the target source. The library provides three serializers and three source-type strategy functions:
+
+### Expression Serializers
+
+```typescript
+import { field, and, toEsriSql, toCql2Text, toOverpassFilters } from 'audiom-embedder';
+
+const expr = and(
+  field('type').eq('building'),
+  field('status').eq('active')
+);
+
+toEsriSql(expr);
+// → "type = 'building' AND status = 'active'"
+
+toCql2Text(expr);
+// → "type = 'building' AND status = 'active'"
+
+toOverpassFilters(expr);
+// → '["type"="building"]["status"="active"]'
+```
+
+### Source-Type Strategy Functions
+
+Use these to produce complete query parameter objects for each source type:
+
+```typescript
+import { toEsriParams, toOgcParams, toOverpassQuery } from 'audiom-embedder';
+
+// Esri REST API parameters
+toEsriParams({
+  where: field('type').eq('building'),
+  spatialFilter: SpatialFilter.fromEnvelope(-123, 37, -122, 38),
+  outFields: ['name', 'height'],
+  orderByFields: [orderBy('height', SortOrder.Descending)],
+  pagination: { count: 100 }
+});
+// → { where: "type = 'building'", geometryType: "...", geometry: "...", outFields: "name,height", ... }
+
+// OGC API Features parameters
+toOgcParams({
+  where: field('surface').eq('concrete'),
+  bbox: bbox(-122.35, 47.60, -122.30, 47.65),
+  datetime: DateTimeInterval.create(new Date(2024, 0, 1), null)
+});
+// → { filter: "surface = 'concrete'", "filter-lang": "cql2-text", bbox: "...", datetime: "..." }
+
+// Overpass QL query body
+toOverpassQuery({
+  where: field('amenity').eq('cafe'),
+  bbox: bbox(-122.42, 37.76, -122.38, 37.80)
+});
+// → '[out:json][timeout:25];nwr["amenity"="cafe"](37.76,-122.42,37.8,-122.38);out body geom;'
 ```
 
 ## PostMessage API
@@ -485,11 +674,24 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 ### Classes
 
 - **`AudiomEmbedConfig`** - Main configuration class for embed maps
-- **`AudiomSource`** - Data source configuration
+- **`AudiomSource`** - Data source configuration (factories: `fromEsri`, `fromOgc`, `fromOverpass`, `fromName`, `fromGeoJsonUrl`)
 - **`StepSize`** - Step size with unit support
 - **`Coordinates`** - Geographic coordinate (longitude, latitude)
 - **`GeoQuad`** - Geographic quadrilateral (4 corners)
 - **`AudiomMessageHandler`** - Bidirectional PostMessage communication handler
+- **`SpatialFilter`** - Esri spatial query filter (`intersects`, `contains`, `within`, `withinDistance`, `fromEnvelope`)
+- **`OverpassAroundFilter`** - Overpass proximity filter (`aroundPoint`, `aroundSet`)
+- **`TimeInstant`** / **`TimeExtent`** - Esri temporal filters (epoch-based)
+- **`DateTimeInstant`** / **`DateTimeInterval`** - Vendor-neutral temporal filters (Date-based, RFC 3339)
+
+### Serializers
+
+- **`toEsriSql(expr)`** - Expression → Esri SQL-92 WHERE clause
+- **`toCql2Text(expr)`** - Expression → OGC CQL2-Text
+- **`toOverpassFilters(expr)`** - Expression → Overpass QL tag filters
+- **`toEsriParams(options)`** - Full Esri REST query parameters
+- **`toOgcParams(options)`** - Full OGC API Features parameters
+- **`toOverpassQuery(options)`** - Complete Overpass QL query body
 
 ### Enums
 
@@ -498,6 +700,12 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 - **`StepSizeUnit`** - `Kilometers`, `Meters`, `Miles`, `Feet`
 - **`VisualStyle`** - `Geology`, `Indoor`, `Outdoor`, `Travel`
 - **`FilterMode`** - `Global`, `Scan`
+- **`SpatialRelationship`** - `Intersects`, `Contains`, `Crosses`, `Within`, etc.
+- **`GeometryType`** - `Point`, `Multipoint`, `Polyline`, `Polygon`, `Envelope`
+- **`DistanceUnit`** - `Meter`, `Foot`, `Kilometer`, `StatuteMile`, `NauticalMile`
+- **`SortOrder`** - `Ascending`, `Descending`
+- **`OverpassElementType`** - `Node`, `Way`, `Relation`, `Nwr`
+- **`IntervalUnit`** / **`CompoundIntervalUnit`** - SQL INTERVAL units for relative date queries
 - **`AudiomOutboundEventType`** - `Ready`, `PositionChanged`, `FeatureEntered`, `FeatureExited`, `FeatureSelected`, `StateChanged`, `Error`
 - **`AudiomInboundCommandType`** - `MoveAvatar`, `GetState`, `GetEnclosingFeatures`, `SetFilters`, `ExecuteCommand`
 - **`AudiomErrorCode`** - `INVALID_ORIGIN`, `INVALID_MESSAGE`, `UNKNOWN_COMMAND`, `COMMAND_FAILED`, `NOT_READY`
@@ -505,7 +713,11 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 ### Interfaces
 
 - **`IAudiomEmbedConfig`** - Configuration interface
-- **`IAudiomSource`** - Source interface
+- **`IAudiomSource`** - Source interface (includes `where`, `spatialFilter`, `time`, `bbox`, `datetime`, `aroundFilter`, `outFields`, `orderByFields`, `pagination`)
+- **`BoundingBox`** - Vendor-neutral bounding box (`{ west, south, east, north }`)
+- **`Expression`** - Discriminated union of filter expression AST nodes
+- **`EsriParamOptions`** / **`OgcParamOptions`** / **`OverpassQueryOptions`** - Source-type serializer options
+- **`OrderByField`** / **`PaginationOptions`** - Query sort and pagination
 - **`IVisualBaseLayer`** - Visual base layer configuration
 - **`IFeaturePayload`** - Map feature payload in PostMessage events
 - **`ISetFiltersPayload`** - Filter configuration for PostMessage commands
