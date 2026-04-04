@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parse } from './parsing';
-import { toString } from './Serialize';
+import { toEsriSql } from './serializers/EsriSqlSerializer';
 
 describe('parse', () => {
   describe('comparison', () => {
@@ -218,7 +218,7 @@ describe('parse', () => {
     for (const sql of cases) {
       it(`roundtrips: ${sql}`, () => {
         const parsed = parse(sql);
-        const serialized = toString(parsed);
+        const serialized = toEsriSql(parsed);
         expect(serialized).toBe(sql);
       });
     }
