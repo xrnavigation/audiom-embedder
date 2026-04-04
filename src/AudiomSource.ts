@@ -274,7 +274,7 @@ export class AudiomSource implements IAudiomSource {
       where: config.where,
       bbox: config.bbox,
       aroundFilter: config.aroundFilter,
-      datetime: config.datetime instanceof DateTimeInstant ? config.datetime : undefined,
+      datetime: config.datetime,
       overpassOptions: config.overpassOptions,
     });
   }

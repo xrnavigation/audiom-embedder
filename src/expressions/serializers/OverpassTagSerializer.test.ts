@@ -112,6 +112,12 @@ describe('toOverpassFilters', () => {
         '["ref"~"A.1"]'
       );
     });
+
+    it('escapes regex-special chars in LIKE pattern', () => {
+      expect(toOverpassFilters(field('name').like('file.txt'))).toBe(
+        '["name"~"file\\\\.txt"]'
+      );
+    });
   });
 
   describe('isNull', () => {

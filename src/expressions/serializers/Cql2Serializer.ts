@@ -11,6 +11,7 @@
  */
 
 import { Expression, ExpressionType, ComparisonExpr, LogicalExpr, LikeExpr, InExpr, BetweenExpr, IsNullExpr, LiteralValue } from '../Expression';
+import { toRfc3339 } from '../temporal/DateTimeFilter';
 
 // ── CQL2 keyword constants ──────────────────────────────────────────
 
@@ -34,20 +35,6 @@ enum Cql2Keyword {
 const SINGLE_QUOTE_PATTERN = /'/g;
 
 /**
- * Format a Date as ISO 8601 UTC string.
- */
-function toIso8601(date: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const yyyy = date.getUTCFullYear();
-  const MM = pad(date.getUTCMonth() + 1);
-  const dd = pad(date.getUTCDate());
-  const HH = pad(date.getUTCHours());
-  const mm = pad(date.getUTCMinutes());
-  const ss = pad(date.getUTCSeconds());
-  return `${yyyy}-${MM}-${dd}T${HH}:${mm}:${ss}Z`;
-}
-
-/**
  * Serialize a literal value to its CQL2-Text string representation.
  */
 function literalToCql2(value: LiteralValue): string {
@@ -64,7 +51,7 @@ function literalToCql2(value: LiteralValue): string {
     return value ? Cql2Keyword.True : Cql2Keyword.False;
   }
   if (value instanceof Date) {
-    return `${Cql2Keyword.Timestamp}('${toIso8601(value)}')`;
+    return `${Cql2Keyword.Timestamp}('${toRfc3339(value)}')`;    
   }
   return String(value);
 }
@@ -108,6 +95,10 @@ function isNullToCql2(expr: IsNullExpr): string {
 
 /**
  * Serialize an Expression AST node to a CQL2-Text string.
+ *
+ * **Note:** `RawExpr` nodes are passed through unmodified. Raw SQL
+ * fragments authored for Esri SQL-92 may not constitute valid CQL2-Text
+ * (e.g., different function syntax or literal formats).
  */
 export function toCql2Text(expr: Expression): string {
   switch (expr.type) {

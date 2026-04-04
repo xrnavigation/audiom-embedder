@@ -174,9 +174,9 @@ describe('toOgcParams', () => {
 // ── Overpass query ──────────────────────────────────────────────────
 
 describe('toOverpassQuery', () => {
-  it('returns minimal query with defaults', () => {
-    expect(toOverpassQuery({})).toBe(
-      '[out:json][timeout:25];nwr;out body geom;'
+  it('throws when no filter is provided', () => {
+    expect(() => toOverpassQuery({})).toThrow(
+      'toOverpassQuery() requires at least one filter'
     );
   });
 
@@ -230,15 +230,17 @@ describe('toOverpassQuery', () => {
 
   it('includes date setting', () => {
     const query = toOverpassQuery({
+      where: field('highway').eq('footway'),
       datetime: DateTimeInstant.fromDate(new Date(Date.UTC(2024, 0, 15))),
     });
     expect(query).toBe(
-      '[out:json][timeout:25][date:"2024-01-15T00:00:00Z"];nwr;out body geom;'
+      '[out:json][timeout:25][date:"2024-01-15T00:00:00Z"];nwr["highway"="footway"];out body geom;'
     );
   });
 
   it('respects custom output options', () => {
     const query = toOverpassQuery({
+      where: field('highway').eq('footway'),
       outputOptions: {
         format: 'xml',
         timeout: 60,
@@ -247,7 +249,7 @@ describe('toOverpassQuery', () => {
       },
     });
     expect(query).toBe(
-      '[out:xml][timeout:60];way;out body geom 100;'
+      '[out:xml][timeout:60];way["highway"="footway"];out body geom 100;'
     );
   });
 

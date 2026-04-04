@@ -165,9 +165,20 @@ export interface OverpassQueryOptions {
 /**
  * Assemble a complete Overpass QL query body.
  *
+ * At least one filter (`where`, `bbox`, or `aroundFilter`) must be provided.
+ * An unfiltered query would attempt to download the entire OSM planet.
+ *
+ * @throws {Error} if no attribute, spatial, or around filter is provided.
  * @see https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL
  */
 export function toOverpassQuery(options: OverpassQueryOptions): string {
+  if (!options.where && !options.bbox && !options.aroundFilter) {
+    throw new Error(
+      'toOverpassQuery() requires at least one filter (where, bbox, or aroundFilter). '
+      + 'An unfiltered query would request all OSM elements globally.'
+    );
+  }
+
   const format = options.outputOptions?.format ?? 'json';
   const timeout = options.outputOptions?.timeout ?? 25;
   const elementType = options.outputOptions?.elementType ?? OverpassElementType.Nwr;
