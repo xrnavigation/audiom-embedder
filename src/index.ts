@@ -15,3 +15,5 @@ export { AudiomMessageHandler } from './AudiomMessages';
 export type {
   AudiomOutboundMessage,
 } from './AudiomMessages';
+
+export * from './expressions';

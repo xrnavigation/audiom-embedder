@@ -22,10 +22,11 @@ This library provides a complete set of TypeScript interfaces, classes, and util
 import {
   AudiomEmbedConfig,
   AudiomSource,
+  Coordinates,
   StepSize,
   MapType,
   AudiomMessageHandler
-} from './audiom-client';
+} from 'audiom-embedder';
 ```
 
 ## Quick Start
@@ -36,12 +37,12 @@ import {
 const config = AudiomEmbedConfig.dynamic({
   apiKey: 'your-api-key-here',
   sources: ['osm'],
-  center: [-122.1431, 47.6495],
+  center: Coordinates.create(-122.1431, 47.6495),
   zoom: 15
 });
 
 const url = config.toUrl();
-// https://audiom-staging.herokuapp.com/embed/dynamic?apiKey=...&source=osm&center=-122.1431,47.6495&zoom=15
+// https://audiom-staging.herokuapp.com/embed/dynamic?apiKey=...&sources=osm&center=-122.1431,47.6495&zoom=15
 ```
 
 ### Static Map with Numeric ID
@@ -61,14 +62,14 @@ const url = config.toUrl();
 const config = AudiomEmbedConfig.dynamic({
   apiKey: 'your-api-key-here',
   sources: ['osm'],
-  center: [-122.1431, 47.6495],
-  stepsize: StepSize.Meters(10) // Type-safe step size
+  center: Coordinates.create(-122.1431, 47.6495),
+  stepSize: StepSize.meters(10) // Type-safe step size
 });
 
 // Alternative units:
-StepSize.Kilometers(5);
-StepSize.Miles(2);
-StepSize.Feet(100);
+StepSize.kilometers(5);
+StepSize.miles(2);
+StepSize.feet(100);
 StepSize.parse('50m'); // Parse from string
 ```
 
@@ -156,7 +157,7 @@ const config = AudiomEmbedConfig.dynamic({
       rules: '/rules/esri-indoor.json'
     })
   ],
-  center: [-117.1945001420124, 34.05679755835778]
+  center: Coordinates.create(-117.1945001420124, 34.05679755835778)
 });
 
 const url = config.toUrl();
@@ -165,21 +166,26 @@ const url = config.toUrl();
 ## Listening to User Position Updates
 
 ```typescript
+import {
+  AudiomMessageHandler,
+  AudiomOutboundEventType
+} from 'audiom-embedder';
+
 // Create message handler
-const messageHandler = new AudiomMessageHandler(
+const handler = new AudiomMessageHandler(
   'https://audiom-staging.herokuapp.com' // Optional: restrict to origin
 );
 
 // Add listener
-messageHandler.addUserPositionListener((position) => {
-  const [longitude, latitude] = position;
+handler.on(AudiomOutboundEventType.PositionChanged, (payload) => {
+  const [longitude, latitude] = payload.position;
   console.log('User moved to:', longitude, latitude);
   // Update your UI, sync with other maps, etc.
 });
 
 // Clean up when done
-messageHandler.removeAllListeners();
-messageHandler.dispose();
+handler.removeAllListeners();
+handler.dispose();
 ```
 
 ## Full Configuration Example
@@ -195,7 +201,7 @@ const config = AudiomEmbedConfig.dynamic({
       mapType: MapType.Indoor
     })
   ],
-  center: [-117.19, 34.06],
+  center: Coordinates.create(-117.19, 34.06),
   zoom: 18,
   title: 'Campus Indoor Navigation',
   soundpack: '/audio/campus',
@@ -203,7 +209,7 @@ const config = AudiomEmbedConfig.dynamic({
   showVisualMap: true,
   heading: 1,
   showHeading: true,
-  stepsize: StepSize.Meters(5),
+  stepSize: StepSize.meters(5),
   additionalParams: {
     organizationId: '12345',
     customFlag: true
@@ -230,20 +236,24 @@ const prodUrl = config.toUrlWithBase('https://audiom.example.com');
 - **`AudiomEmbedConfig`** - Main configuration class for embed maps
 - **`AudiomSource`** - Data source configuration
 - **`StepSize`** - Step size with unit support
-- **`AudiomMessageHandler`** - PostMessage communication handler
+- **`Coordinates`** - Geographic coordinate (longitude, latitude)
+- **`GeoQuad`** - Geographic quadrilateral (4 corners)
+- **`AudiomMessageHandler`** - Bidirectional PostMessage communication handler
 
 ### Enums
 
 - **`MapType`** - `Travel`, `Heatmap`, `Indoor`
 - **`SourceType`** - `OSM`, `TDEI`, `ESRI`, `GeoJSON`
 - **`StepSizeUnit`** - `Kilometers`, `Meters`, `Miles`, `Feet`
+- **`VisualStyle`** - `Geology`, `Indoor`, `Outdoor`, `Travel`
+- **`FilterMode`** - `Global`, `Scan`
 
 ### Types
 
-- **`Coordinates`** - `[longitude, latitude]` tuple
 - **`IAudiomEmbedConfig`** - Configuration interface
 - **`IAudiomSource`** - Source interface
-- **`AudiomUserPositionListener`** - Position update callback
+- **`AudiomOutboundMessage`** - Discriminated union of all outbound event messages
+- **`AudiomInboundCommand`** - Discriminated union of all inbound command messages
 
 ## Type Safety
 
@@ -255,11 +265,10 @@ const config: AudiomEmbedConfig = AudiomEmbedConfig.dynamic({
   heading: 1, // ✅ Valid (1-6)
   // heading: 7, // ❌ TypeScript error
   
-  center: [-122.14, 47.65], // ✅ [longitude, latitude]
-  // center: [47.65, -122.14], // ⚠️ No compile error, but logically incorrect
+  center: Coordinates.create(-122.14, 47.65), // ✅ Coordinates object
   
-  mapType: MapType.Indoor, // ✅ Type-safe enum
-  // mapType: 'invalid', // ❌ TypeScript error
+  visualStyle: VisualStyle.Indoor, // ✅ Type-safe enum
+  // visualStyle: 'invalid', // ❌ TypeScript error
 });
 ```
 
@@ -275,7 +284,7 @@ try {
 
 try {
   // Negative step size
-  const stepSize = StepSize.Meters(-5);
+  const stepSize = StepSize.meters(-5);
 } catch (error) {
   console.error('Step size must be positive:', error.message);
 }
