@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AudiomSource, SourceType, MapType } from './AudiomSource';
 import { field } from './expressions/AttributeFilter';
+import { orderBy, SortOrder } from './expressions/QueryOptions';
 
 describe('AudiomSource', () => {
   describe('constructor', () => {
@@ -126,6 +127,65 @@ describe('AudiomSource', () => {
       expect(params['src.custom']).toBe('value');
       expect(params['src.count']).toBe('5');
       expect(params['src.enabled']).toBe('true');
+    });
+
+    it('serializes outFields as comma-separated list', () => {
+      const src = new AudiomSource({
+        source: 'layer',
+        outFields: ['name', 'population', 'state']
+      });
+      const params = src.toQueryParams();
+      expect(params['layer.outFields']).toBe('name,population,state');
+    });
+
+    it('serializes wildcard outFields', () => {
+      const src = new AudiomSource({
+        source: 'layer',
+        outFields: ['*']
+      });
+      const params = src.toQueryParams();
+      expect(params['layer.outFields']).toBe('*');
+    });
+
+    it('omits outFields when empty array', () => {
+      const src = new AudiomSource({
+        source: 'layer',
+        outFields: []
+      });
+      const params = src.toQueryParams();
+      expect(params['layer.outFields']).toBeUndefined();
+    });
+
+    it('serializes orderByFields with sort direction', () => {
+      const src = new AudiomSource({
+        source: 'layer',
+        orderByFields: [
+          orderBy('name'),
+          orderBy('population', SortOrder.Descending)
+        ]
+      });
+      const params = src.toQueryParams();
+      expect(params['layer.orderByFields']).toBe('name ASC, population DESC');
+    });
+
+    it('serializes pagination with count only', () => {
+      const src = new AudiomSource({
+        source: 'layer',
+        pagination: { count: 50 }
+      });
+      const params = src.toQueryParams();
+      expect(params['layer.resultRecordCount']).toBe('50');
+      expect(params['layer.resultOffset']).toBeUndefined();
+    });
+
+    it('serializes pagination with count and offset', () => {
+      const src = new AudiomSource({
+        source: 'layer',
+        pagination: { count: 25, offset: 100 }
+      });
+      const params = src.toQueryParams();
+      expect(params['layer.resultRecordCount']).toBe('25');
+      expect(params['layer.resultOffset']).toBe('100');
     });
   });
 });

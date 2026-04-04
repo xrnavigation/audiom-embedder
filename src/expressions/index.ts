@@ -36,3 +36,10 @@ export type { IntervalExpression } from './TemporalFilter';
 
 export { toString } from './Serialize';
 export { parse } from './parsing';
+
+export {
+  SortOrder,
+  orderBy,
+  orderByFieldsToString
+} from './QueryOptions';
+export type { OrderByField, PaginationOptions } from './QueryOptions';

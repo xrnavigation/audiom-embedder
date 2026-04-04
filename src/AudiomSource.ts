@@ -2,6 +2,7 @@ import { Expression } from './expressions/Expression';
 import { toString } from './expressions/Serialize';
 import { SpatialFilter } from './expressions/SpatialFilter';
 import { TimeInstant, TimeExtent } from './expressions/TemporalFilter';
+import { OrderByField, PaginationOptions, orderByFieldsToString } from './expressions/QueryOptions';
 
 /**
  * Map type for rendering sources
@@ -74,6 +75,25 @@ export interface IAudiomSource {
   time?: TimeInstant | TimeExtent;
 
   /**
+   * Limit which fields/properties are returned in results.
+   * Pass `['*']` to return all fields.
+   *
+   * @see https://developers.arcgis.com/rest/services-reference/enterprise/query-feature-service-layer/
+   */
+  outFields?: string[];
+
+  /**
+   * Sort results by one or more fields.
+   * Use `orderBy('field', SortOrder.Descending)` to build entries.
+   */
+  orderByFields?: OrderByField[];
+
+  /**
+   * Pagination options: limit and offset for result sets.
+   */
+  pagination?: PaginationOptions;
+
+  /**
    * Additional custom parameters for the source
    */
   additionalParams?: Record<string, string | number | boolean>;
@@ -92,6 +112,9 @@ export class AudiomSource implements IAudiomSource {
   where?: Expression;
   spatialFilter?: SpatialFilter;
   time?: TimeInstant | TimeExtent;
+  outFields?: string[];
+  orderByFields?: OrderByField[];
+  pagination?: PaginationOptions;
   additionalParams?: Record<string, string | number | boolean>;
 
   constructor(config: IAudiomSource) {
@@ -104,6 +127,9 @@ export class AudiomSource implements IAudiomSource {
     this.where = config.where;
     this.spatialFilter = config.spatialFilter;
     this.time = config.time;
+    this.outFields = config.outFields;
+    this.orderByFields = config.orderByFields;
+    this.pagination = config.pagination;
     this.additionalParams = config.additionalParams;
   }
 
@@ -137,6 +163,9 @@ export class AudiomSource implements IAudiomSource {
     where?: Expression;
     spatialFilter?: SpatialFilter;
     time?: TimeInstant | TimeExtent;
+    outFields?: string[];
+    orderByFields?: OrderByField[];
+    pagination?: PaginationOptions;
   }): AudiomSource {
     return new AudiomSource({
       source: config.source,
@@ -147,7 +176,10 @@ export class AudiomSource implements IAudiomSource {
       rules: config.rules,
       where: config.where,
       spatialFilter: config.spatialFilter,
-      time: config.time
+      time: config.time,
+      outFields: config.outFields,
+      orderByFields: config.orderByFields,
+      pagination: config.pagination,
     });
   }
 
@@ -186,6 +218,18 @@ export class AudiomSource implements IAudiomSource {
     }
     if (this.time) {
       params[`${sourceName}.time`] = this.time.toQueryParam();
+    }
+    if (this.outFields && this.outFields.length > 0) {
+      params[`${sourceName}.outFields`] = this.outFields.join(',');
+    }
+    if (this.orderByFields && this.orderByFields.length > 0) {
+      params[`${sourceName}.orderByFields`] = orderByFieldsToString(this.orderByFields);
+    }
+    if (this.pagination) {
+      params[`${sourceName}.resultRecordCount`] = String(this.pagination.count);
+      if (this.pagination.offset !== undefined) {
+        params[`${sourceName}.resultOffset`] = String(this.pagination.offset);
+      }
     }
     if (this.additionalParams) {
       Object.entries(this.additionalParams).forEach(([key, value]) => {
