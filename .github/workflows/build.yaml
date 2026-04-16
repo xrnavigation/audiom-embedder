@@ -1,4 +1,4 @@
-name: Build
+name: Build and Test
 
 on:
   push:
@@ -19,7 +19,7 @@ env:
   NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  package:
+  build_and_test:
     runs-on: ubuntu-latest
     steps:
     - name: "Checkout"
@@ -33,36 +33,3 @@ jobs:
         uploadCoverage: true
         authUrls: ${{ env.REGISTRY }}
         apiKeys: ${{ env.NODE_AUTH_TOKEN }}
-
-    - name: "Get version from package.json"
-      id: version
-      uses: StudioWhyNot/act/common/yq/yq-expression@master
-      with:
-        expression: .version
-        input: package.json
-
-    - name: "Pack package"
-      if: ${{ github.event_name == 'push' }}
-      id: pack
-      uses: StudioWhyNot/act/common/npm/npm-pack@master
-      with:
-        version: ${{ steps.version.outputs.result }}
-        nodeVersion: ${{ env.NODE_VERSION }}
-        buildScript: build
-        outputDirectory: out
-
-    - name: "Upload Artifacts"
-      if: ${{ github.event_name == 'push' }}
-      uses: actions/upload-artifact@v6
-      with:
-        name: ${{ steps.pack.outputs.tgzName }}
-        path: ${{ steps.pack.outputs.tgz }}
-
-    - name: "Publish the NPM package"
-      if: ${{ github.event_name == 'push' }}
-      uses: StudioWhyNot/act/common/npm/npm-push@master
-      with:
-        tgz: ${{ steps.pack.outputs.tgz }}
-        registry: ${{ env.REGISTRY }}
-        apiKey: ${{ env.NODE_AUTH_TOKEN }}
-        access: public
