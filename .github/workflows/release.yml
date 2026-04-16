@@ -1,5 +1,6 @@
 name: Build, Release, and Publish
 permissions:
+  contents: write
   packages: write
 
 on:
