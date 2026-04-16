@@ -1,5 +1,5 @@
 {
-  "name": "audiom-embedder",
+  "name": "@xrnavigation/audiom-embedder",
   "version": "1.0.0",
   "description": "A strongly-typed TypeScript client library for embedding Audiom inclusive mapping solutions",
   "type": "module",
