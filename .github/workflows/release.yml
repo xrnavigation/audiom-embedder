@@ -10,7 +10,7 @@ on:
 jobs:
   build_release_publish:
     name: Build, Release, and Publish
-    runs-on: "runs-on=${{ github.run_id }}/runner=2cpu-linux-x64"
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 

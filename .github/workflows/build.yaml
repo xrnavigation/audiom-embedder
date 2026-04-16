@@ -17,7 +17,6 @@ env:
   NODE_VERSION: ${{ vars.NODE_VERSION && vars.NODE_VERSION || '20' }}
   REGISTRY: https://npm.pkg.github.com
   NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build_and_test:
