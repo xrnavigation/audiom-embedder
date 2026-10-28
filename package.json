@@ -9,6 +9,8 @@
     "registry": "https://npm.pkg.github.com"
   },
   "scripts": {
+    "changelog:add": "changelog-note",
+    "changelog:note:check": "check-changelog-note --staged",
     "build": "tsc",
     "watch": "tsc --watch",
     "test": "vitest run",
@@ -31,9 +33,10 @@
     "README.md"
   ],
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.0.16",
+    "changelog-tools": "git+https://github.com/xrnavigation/changelog-tools.git",
     "typescript": "^5.3.0",
-    "vitest": "^4.0.16",
-    "@vitest/coverage-v8": "^4.0.16"
+    "vitest": "^4.0.16"
   },
   "repository": {
     "type": "git",
