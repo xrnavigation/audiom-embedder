@@ -1,0 +1,6 @@
+{
+  "id": "sdk-enable-sounds",
+  "category": "Added",
+  "summary": "Request embedded Audiom sound activation through AudiomMessageHandler.enableSounds.",
+  "details": "Sends the enableSounds command to the requested iframe and exact target origin. Requires an Audiom deployment supporting the command; browser audio policies still apply."
+}

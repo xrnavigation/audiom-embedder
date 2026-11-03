@@ -63,6 +63,15 @@ describe('AudiomMessageHandler', () => {
 
   // ── Event Listeners ──────────────────────────────────────────────
 
+  it('posts enableSounds to the requested iframe and exact target origin', () => {
+    const post = vi.fn();
+    handler.enableSounds(createIframe(post), 'https://www.audiom.net');
+    expect(post).toHaveBeenCalledWith(
+      { type: AudiomInboundCommandType.EnableSounds },
+      'https://www.audiom.net'
+    );
+  });
+
   describe('on / off', () => {
     it('dispatches payload to a registered listener', () => {
       const cb = vi.fn();
