@@ -97,6 +97,8 @@ export type AudiomOutboundMessage =
  * Command types sent from the parent window to the embedded Audiom map
  */
 export enum AudiomInboundCommandType {
+  /** Enable sounds without moving focus or changing the selected speech mode. */
+  EnableSounds = 'enableSounds',
   /** Move the avatar to a specific position */
   MoveAvatar = 'moveAvatar',
   /** Query the current avatar position */
@@ -129,6 +131,7 @@ export interface IExecuteCommandPayload {
 // ─── Inbound Command Union ─────────────────────────────────────────────
 
 export type AudiomInboundCommand =
+  | { type: AudiomInboundCommandType.EnableSounds }
   | { type: AudiomInboundCommandType.MoveAvatar; payload: IMoveAvatarPayload }
   | { type: AudiomInboundCommandType.GetState }
   | { type: AudiomInboundCommandType.GetEnclosingFeatures }
@@ -228,6 +231,11 @@ export class AudiomMessageHandler {
   }
 
   // ── Inbound Commands ───────────────────────────────────────────────
+
+  /** Request sound activation. Browser audio policies may still require a gesture in the iframe. */
+  enableSounds(iframe: HTMLIFrameElement, targetOrigin: string): void {
+    this.postCommand(iframe, { type: AudiomInboundCommandType.EnableSounds }, targetOrigin);
+  }
 
   /**
    * Move the avatar to a specific geographic position.

@@ -228,6 +228,19 @@ handler.removeAllListeners();
 handler.dispose();
 ```
 
+## Enabling sounds from the host
+
+After the user completes the host's configuration, call:
+
+```typescript
+handler.enableSounds(iframe, 'https://www.audiom.net');
+```
+
+The iframe URL must enable the API with an appropriate `allowedOrigins` value.
+This command preserves speech mode and keyboard focus. Browser audio policies
+may still require a gesture inside the iframe; keep Audiom's enable-sounds
+control available. Rejected activation uses the existing `error` event.
+
 ## Full Configuration Example
 
 ```typescript
